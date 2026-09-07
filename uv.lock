@@ -996,7 +996,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "marshmallow", marker = "extra == 'marshmallow'", specifier = ">=3.13,<5.0" },
+    { name = "marshmallow", marker = "extra == 'marshmallow'", specifier = ">=3.18,<5.0" },
     { name = "pydantic", marker = "extra == 'pydantic'", specifier = ">=2.0,<3.0" },
     { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
 ]

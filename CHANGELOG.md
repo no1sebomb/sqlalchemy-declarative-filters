@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-07
+
 ### Added
 
 - `Filters` base class: every public method in the body becomes a filter, with the
@@ -29,3 +31,6 @@ All notable changes to this project are documented here. The format follows
   switch off a filter that declares a default.
 - Filters are inherited, so a project can define one base class and extend it.
 - Typed: `py.typed` plus stubs for the three public namespaces.
+
+[Unreleased]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/releases/tag/v0.1.0

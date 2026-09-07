@@ -119,7 +119,7 @@ def _coercer(request: SchemaRequest) -> Any:
 
     nullable = frozenset(request.nullable_names)
 
-    def coerce_null_strings(_, data: Mapping[str, Any], **__: Any) -> dict[str, Any]:
+    def coerce_null_strings(_: Any, data: Mapping[str, Any], **__: Any) -> dict[str, Any]:
         return {
             key: None if key in nullable and request.is_null_string(value) else value
             for key, value in data.items()

@@ -43,19 +43,22 @@ class PydanticBackend(SchemaBackend):
                 _coercer(request)
             )
 
-        return create_model(
+        model: type[BaseModel] = create_model(
             request.name,
-            __doc__=request.doc,
             __module__=request.module,
             __validators__=validators,
             **fields,
         )
+        # Assigned rather than passed as `__doc__=`, which create_model only grew in 2.1.
+        model.__doc__ = request.doc
+
+        return model
 
 
 def _coercer(request: SchemaRequest) -> Any:
     """A ``mode="before"`` validator turning null-like strings into ``None``."""
 
-    def coerce_null_strings(_, value: Any) -> Any:
+    def coerce_null_strings(_: Any, value: Any) -> Any:
         return None if request.is_null_string(value) else value
 
     return classmethod(coerce_null_strings)

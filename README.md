@@ -1,7 +1,15 @@
 # sqlalchemy-declarative-filters
 
+[![CI](https://github.com/no1sebomb/sqlalchemy-declarative-filters/actions/workflows/ci.yml/badge.svg)](https://github.com/no1sebomb/sqlalchemy-declarative-filters/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/sqlalchemy-declarative-filters.svg)](https://pypi.org/project/sqlalchemy-declarative-filters/)
+[![Python](https://img.shields.io/pypi/pyversions/sqlalchemy-declarative-filters.svg)](https://pypi.org/project/sqlalchemy-declarative-filters/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-d71f00.svg)](https://www.sqlalchemy.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+
 Declare a filter set once, as a class. Get a validated schema and a SQLAlchemy
 statement builder out of it.
+
+> **Status: pre-release.** The API is not stable yet.
 
 ```python
 from sqlalchemy_declarative_filters import Filters, options, skip_null
