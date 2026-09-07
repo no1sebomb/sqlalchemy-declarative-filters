@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --group dev --extra asyncio
+      - run: uv sync --group dev --extra pydantic --extra marshmallow
       - name: ruff check
         run: uv run ruff check --output-format=github .
       - name: ruff format
@@ -45,11 +45,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --group dev --extra asyncio
+      - run: uv sync --group dev --extra pydantic --extra marshmallow
       - name: pytest
         run: uv run coverage run -m pytest
       - name: coverage report
         run: uv run coverage report
+
+  # The dataclass backend must work with nothing but SQLAlchemy installed.
+  bare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --no-default-groups
+      - name: no optional dependency leaked in
+        run: >
+          uv run python -c "import importlib.util as u;
+          assert u.find_spec('pydantic') is None, 'pydantic leaked in';
+          assert u.find_spec('marshmallow') is None, 'marshmallow leaked in';
+          import sqlalchemy_declarative_filters as f;
+          print(f.__version__, f.Filters, f.Filters.Schema)"
 
   build:
     runs-on: ubuntu-latest

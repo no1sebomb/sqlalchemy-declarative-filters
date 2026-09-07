@@ -1,0 +1,111 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sqlalchemy-declarative-filters"
+description = "Declarative SQLAlchemy filters with auto-generated dataclass, Pydantic or Marshmallow schemas."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.md"]
+requires-python = ">=3.10"
+authors = [{ name = "no1sebomb", email = "noisebombch@gmail.com" }]
+keywords = ["sqlalchemy", "filters", "query", "pydantic", "marshmallow", "fastapi", "dataclasses"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = ["SQLAlchemy>=2.0,<3.0"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+# Schema backends. The default dataclass backend needs no extra.
+pydantic = ["pydantic>=2.0,<3.0"]
+marshmallow = ["marshmallow>=3.13,<5.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "coverage[toml]>=7.5",
+    "mypy>=1.11",
+    "ruff>=0.6",
+    "pre-commit>=3.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/no1sebomb/sqlalchemy-declarative-filters"
+Repository = "https://github.com/no1sebomb/sqlalchemy-declarative-filters"
+Issues = "https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues"
+Changelog = "https://github.com/no1sebomb/sqlalchemy-declarative-filters/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/sqlalchemy_declarative_filters/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "CHANGELOG.md", "LICENSE.md", "pyproject.toml"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sqlalchemy_declarative_filters"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["sqlalchemy_declarative_filters"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "@overload", "raise NotImplementedError"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "N",        # pep8-naming
+    "UP",       # pyupgrade
+    "B",        # flake8-bugbear
+    "C4",       # flake8-comprehensions
+    "SIM",      # flake8-simplify
+    "TC",       # flake8-type-checking
+    "RUF",      # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Stubs mirror the metaclass properties, which are class-cased on purpose.
+"*.pyi" = ["N802", "N805"]
+# Filter methods take the statement as `self`; test models shadow builtins.
+"tests/*" = ["N805", "N806", "RUF012", "TC001", "TC002", "TC003"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+enable_error_code = ["redundant-expr", "truthy-bool", "ignore-without-code"]
+
+[[tool.mypy.overrides]]
+# The generated schemas are built at runtime, so their attributes cannot be known
+# statically; tests that poke at them would otherwise need an ignore on every line.
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disable_error_code = ["attr-defined", "union-attr", "no-untyped-def"]
