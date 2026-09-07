@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy import select
 
 from sqlalchemy_declarative_filters import (
-    Filters,
     FilterDeclarationError,
+    Filters,
     JoinConflictWarning,
     Statement,
     UnknownFilterError,
