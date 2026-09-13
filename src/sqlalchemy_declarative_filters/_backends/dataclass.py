@@ -48,7 +48,12 @@ def _field_for(spec: Any) -> Any:
     """Build the ``dataclasses.field`` for one filter."""
 
     options = dict(spec.options)
-    metadata = {"description": spec.doc, **options.pop("metadata", {})}
+    metadata: dict[str, Any] = {"description": spec.schema_description}
+
+    if spec.deprecated:
+        metadata["deprecated"] = True
+
+    metadata.update(options.pop("metadata", {}))
 
     if "default_factory" in options:
         # A mutable default has to come from a factory; it replaces the plain default.

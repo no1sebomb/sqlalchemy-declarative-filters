@@ -6,7 +6,7 @@ that differs per backend and reads badly inline.
 """
 
 from collections.abc import Callable, Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, overload
 
 from sqlalchemy.sql._typing import (
     _ColumnExpressionArgument,
@@ -109,5 +109,16 @@ def options(
     kw_only: bool = ...,
 ) -> Callable[[_FuncT], _FuncT]:
     """Keywords for :func:`dataclasses.field`, which is what backs this namespace."""
+
+@overload
+def deprecated(reason: _FuncT, /) -> _FuncT: ...
+@overload
+def deprecated(
+    reason: str | None = ...,
+    /,
+    *,
+    alternative: str | None = ...,
+) -> Callable[[_FuncT], _FuncT]:
+    """Flag the filter as deprecated in the generated schema."""
 
 def skip_null(func: _FuncT) -> _FuncT: ...

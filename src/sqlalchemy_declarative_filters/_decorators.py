@@ -11,15 +11,15 @@ from __future__ import annotations
 
 import inspect
 import warnings
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 from ._exceptions import RedundantSkipNullWarning
-from ._spec import OPTIONS_ATTR, SKIP_NULL_ATTR
+from ._spec import DEPRECATION_ATTR, OPTIONS_ATTR, SKIP_NULL_ATTR, Deprecation
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-__all__ = ("options", "skip_null")
+__all__ = ("deprecated", "options", "skip_null")
 
 _FuncT = TypeVar("_FuncT", bound="Callable[..., Any]")
 
@@ -86,3 +86,52 @@ def _warn_if_redundant(func: Callable[..., Any]) -> None:
         # _warn_if_redundant <- skip_null <- the decorated class body.
         stacklevel=3,
     )
+
+
+@overload
+def deprecated(reason: _FuncT, /) -> _FuncT: ...
+
+
+@overload
+def deprecated(
+    reason: str | None = ...,
+    /,
+    *,
+    alternative: str | None = ...,
+) -> Callable[[_FuncT], _FuncT]: ...
+
+
+def deprecated(reason: Any = None, /, *, alternative: str | None = None) -> Any:
+    """Mark a filter as on its way out.
+
+    The filter keeps working. What changes is the generated schema: its field is
+    flagged deprecated -- which is what puts ``"deprecated": true`` in the OpenAPI
+    document -- and the note is appended to the field's description, because OpenAPI
+    has nowhere else to say why.
+
+    Bare, with a reason, or with the filter to use instead::
+
+        @deprecated
+        def genre(self, value: Genre): ...
+
+        @deprecated("Superseded by `genres`, which takes a list.")
+        def genre(self, value: Genre): ...
+
+        @deprecated(alternative="genres")
+        def genre(self, value: Genre): ...
+    """
+
+    if callable(reason):
+        # Applied bare, as @deprecated; `reason` is the filter itself.
+        return _mark_deprecated(reason, Deprecation())
+
+    def decorator(func: _FuncT) -> _FuncT:
+        return _mark_deprecated(func, Deprecation(reason=reason, alternative=alternative))
+
+    return decorator
+
+
+def _mark_deprecated(func: _FuncT, deprecation: Deprecation) -> _FuncT:
+    setattr(func, DEPRECATION_ATTR, deprecation)
+
+    return func

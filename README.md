@@ -97,6 +97,33 @@ nothing for null to switch off, so `@skip_null` there warns with
 Filters are inherited, so a project usually defines one base and extends it. A
 subclass redefining a name overrides that filter in place.
 
+### Retiring a filter
+
+`@deprecated` marks a filter as on its way out. It keeps working; the generated
+schema field is flagged deprecated -- which is what puts `"deprecated": true` in the
+OpenAPI document -- and the note is appended to the field's description, because
+OpenAPI has nowhere else to say why.
+
+```python
+@deprecated(alternative="genres")
+def genre(self, value: Genre):
+    """Books of this genre."""
+    return self.where(Book.genre == value)
+
+
+@deprecated("Superseded by `genres`, which takes a list.")
+def genre(self, value: Genre): ...
+
+
+@deprecated  # no explanation, just the flag
+def genre(self, value: Genre): ...
+```
+
+On the Pydantic backend this is `Field(deprecated=...)`, so reading the field off a
+model instance also raises a `DeprecationWarning`. On the dataclass and Marshmallow
+backends it is `deprecated: True` in the field metadata, which is where apispec and
+friends look.
+
 ### What a filter can be
 
 Anything you can write as a `where` clause. The annotation is the only thing the
@@ -367,9 +394,19 @@ def title(self, value: str) -> Statement:
     return self.where(Book.title.ilike(f"%{value}%"))
 ```
 
+The decorators, all importable from whichever namespace `Filters` came from:
+
+```python
+@options(**field_keywords)  # keywords for the backend's own field constructor
+@skip_null  # let an explicit null switch a declared default off
+@deprecated  # flag the field deprecated; also @deprecated(reason) / @deprecated(alternative=...)
+```
+
 Errors all derive from `FilterError`: `FilterDeclarationError` for a filter that cannot
 be turned into a field, `UnknownFilterError` for a value with no matching filter,
-`BackendNotAvailableError` when an extra is missing.
+`BackendNotAvailableError` when an extra is missing. Warnings: `JoinConflictWarning`
+for two filters joining the same target differently, `RedundantSkipNullWarning` for
+`@skip_null` on a filter with no default.
 
 ## Licence
 

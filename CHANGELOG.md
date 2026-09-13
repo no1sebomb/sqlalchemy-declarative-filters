@@ -8,11 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `@deprecated` marks a filter as on its way out. The filter keeps working; the
+  generated schema field is flagged deprecated -- `"deprecated": true` in the OpenAPI
+  document -- and the reason, or the filter to use instead, is appended to the field's
+  description. Spelled `@deprecated`, `@deprecated("why")` or
+  `@deprecated(alternative="other_filter")`. ([#2])
 - `@skip_null` on a filter that declares no default now warns with
   `RedundantSkipNullWarning`: such a filter is already skipped when its value is
   `None`, so the decorator changes nothing. ([#1])
 
 [#1]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/1
+[#2]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/2
 
 ## [0.1.0] - 2026-09-07
 

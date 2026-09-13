@@ -18,7 +18,7 @@ Needs the ``marshmallow`` extra:
 from __future__ import annotations
 
 from ._backends import get_backend
-from ._decorators import options, skip_null
+from ._decorators import deprecated, options, skip_null
 from ._joins import Statement
 from ._meta import Filters as _Filters
 from ._meta import FiltersMeta
@@ -31,6 +31,7 @@ __all__ = (
     "MarshmallowFilters",
     "MarshmallowFiltersMeta",
     "Statement",
+    "deprecated",
     "options",
     "skip_null",
 )

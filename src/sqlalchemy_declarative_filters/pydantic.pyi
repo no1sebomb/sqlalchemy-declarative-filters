@@ -1,7 +1,7 @@
 """Public typing surface for the Pydantic namespace."""
 
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, overload
 
 from pydantic import BaseModel
 from pydantic.json_schema import JsonSchemaValue
@@ -56,5 +56,16 @@ def options(
     json_schema_extra: JsonSchemaValue | Callable[[JsonSchemaValue], None] | None = ...,
 ) -> Callable[[_FuncT], _FuncT]:
     """Keywords for :func:`pydantic.Field`, which is what backs this namespace."""
+
+@overload
+def deprecated(reason: _FuncT, /) -> _FuncT: ...
+@overload
+def deprecated(
+    reason: str | None = ...,
+    /,
+    *,
+    alternative: str | None = ...,
+) -> Callable[[_FuncT], _FuncT]:
+    """Flag the filter as deprecated in the generated schema."""
 
 def skip_null(func: _FuncT) -> _FuncT: ...

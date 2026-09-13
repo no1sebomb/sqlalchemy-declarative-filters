@@ -29,7 +29,13 @@ class PydanticBackend(SchemaBackend):
 
         for spec in request.specs:
             options = dict(spec.options)
-            options.setdefault("description", spec.doc)
+            options.setdefault("description", spec.schema_description)
+
+            if spec.deprecated:
+                # Pydantic renders this as `"deprecated": true` in the JSON schema,
+                # and warns at runtime when the field is read.
+                options.setdefault("deprecated", spec.deprecation_message)
+
             fields[spec.name] = (
                 spec.schema_annotation,
                 Field(default=spec.schema_default, **options),

@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy_declarative_filters.marshmallow import (
     Filters,
     MarshmallowFilters,
+    deprecated,
     options,
     skip_null,
 )
@@ -131,6 +132,26 @@ def test_docstring_becomes_the_field_metadata():
     metadata = BookFilters.Schema().fields["title"].metadata
 
     assert metadata["description"] == "Books whose title contains this."
+
+
+def test_deprecated_reaches_the_field_metadata():
+    class WithDeprecated(Filters):
+        @deprecated(alternative="genres")
+        def genre(self, value: Genre):
+            """Books of this genre."""
+
+            return self.where(Book.genre == value)
+
+        def genres(self, value: list[Genre]):
+            """Books of any of these genres."""
+
+            return self.where(Book.genre.in_(value))
+
+    fields = WithDeprecated.Schema().fields
+
+    assert fields["genre"].metadata["deprecated"] is True
+    assert fields["genre"].metadata["description"].endswith("Use 'genres' instead.")
+    assert "deprecated" not in fields["genres"].metadata
 
 
 @pytest.mark.parametrize(

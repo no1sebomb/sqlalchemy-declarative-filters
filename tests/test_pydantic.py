@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy_declarative_filters.pydantic import (
     Filters,
     PydanticFilters,
+    deprecated,
     options,
     skip_null,
 )
@@ -173,6 +174,41 @@ def test_joins_are_planned_from_a_model_too():
     statement = BookFilters.apply(select(Book).join(Book.author), values)
 
     assert sql(statement).count("JOIN author") == 1
+
+
+def test_deprecated_reaches_the_json_schema():
+    class WithDeprecated(Filters):
+        @deprecated(alternative="genres")
+        def genre(self, value: Genre):
+            """Books of this genre."""
+
+            return self.where(Book.genre == value)
+
+        def genres(self, value: list[Genre]):
+            """Books of any of these genres."""
+
+            return self.where(Book.genre.in_(value))
+
+    properties = WithDeprecated.Schema.model_json_schema()["properties"]
+
+    assert properties["genre"]["deprecated"] is True
+    assert properties["genre"]["description"].endswith("Use 'genres' instead.")
+    assert "deprecated" not in properties["genres"]
+
+
+def test_a_deprecated_filter_still_applies_from_a_model():
+    class WithDeprecated(Filters):
+        @deprecated(alternative="genres")
+        def genre(self, value: Genre):
+            """Books of this genre."""
+
+            return self.where(Book.genre == value)
+
+    values = WithDeprecated.Schema(genre=Genre.POETRY)
+
+    # `apply` reads the model through model_dump(), which does not trip Pydantic's
+    # own deprecation warning on attribute access.
+    assert "book.genre = " in sql(WithDeprecated.apply(select(Book), values))
 
 
 def test_other_backends_stay_reachable():

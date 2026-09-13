@@ -76,9 +76,13 @@ def _field_for(spec: FilterSpec) -> fields.Field[Any]:
     options: dict[str, Any] = {
         "allow_none": spec.optional,
         "load_default": spec.schema_default,
-        "metadata": {"description": spec.doc},
+        "metadata": {"description": spec.schema_description},
         **spec.options,
     }
+
+    if spec.deprecated:
+        # apispec copies unknown metadata straight into the OpenAPI field.
+        options["metadata"] = {**options.get("metadata", {}), "deprecated": True}
 
     return _field_for_type(spec.schema_annotation, options)
 

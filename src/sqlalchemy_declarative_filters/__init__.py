@@ -9,7 +9,7 @@ the same in all three, so switching a project over is a one-line change::
 
 from __future__ import annotations
 
-from ._decorators import options, skip_null
+from ._decorators import deprecated, options, skip_null
 from ._exceptions import (
     BackendNotAvailableError,
     FilterDeclarationError,
@@ -38,6 +38,7 @@ __all__ = (
     "Statement",
     "UnknownFilterError",
     "__version__",
+    "deprecated",
     "options",
     "skip_null",
 )

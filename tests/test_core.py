@@ -15,6 +15,7 @@ from sqlalchemy_declarative_filters import (
     RedundantSkipNullWarning,
     Statement,
     UnknownFilterError,
+    deprecated,
     options,
     skip_null,
 )
@@ -342,6 +343,58 @@ def test_a_filter_must_take_exactly_one_value():
 
     with pytest.raises(FilterDeclarationError, match="exactly one parameter"):
         _ = Bad.Schema
+
+
+def test_deprecated_flags_the_field_and_explains_itself():
+    class WithDeprecations(Filters):
+        @deprecated
+        def bare(self, value: str):
+            """A filter on its way out."""
+
+            return self.where(Book.title == value)
+
+        @deprecated("Superseded by `genres`, which takes a list.")
+        def with_reason(self, value: Genre):
+            """Books of this genre."""
+
+            return self.where(Book.genre == value)
+
+        @deprecated(alternative="genres")
+        def with_alternative(self, value: Genre):
+            return self.where(Book.genre == value)
+
+        def current(self, value: list[Genre]):
+            """Books of any of these genres."""
+
+            return self.where(Book.genre.in_(value))
+
+    fields = {f.name: f for f in dataclasses.fields(WithDeprecations.Schema)}
+
+    assert fields["bare"].metadata["deprecated"] is True
+    assert fields["bare"].metadata["description"] == (
+        "A filter on its way out.\n\nDeprecated: The 'bare' filter is deprecated."
+    )
+    assert (
+        fields["with_reason"]
+        .metadata["description"]
+        .endswith("Deprecated: Superseded by `genres`, which takes a list.")
+    )
+    # No docstring, so the note is the whole description.
+    assert fields["with_alternative"].metadata["description"] == (
+        "Deprecated: The 'with_alternative' filter is deprecated. Use 'genres' instead."
+    )
+    assert "deprecated" not in fields["current"].metadata
+
+
+def test_a_deprecated_filter_still_applies():
+    class WithDeprecated(Filters):
+        @deprecated(alternative="genres")
+        def genre(self, value: Genre):
+            """Books of this genre."""
+
+            return self.where(Book.genre == value)
+
+    assert "book.genre = " in sql(WithDeprecated.apply(select(Book), {"genre": Genre.POETRY}))
 
 
 def test_skip_null_without_a_default_warns():

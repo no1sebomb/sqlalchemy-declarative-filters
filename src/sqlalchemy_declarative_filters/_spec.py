@@ -18,11 +18,20 @@ from ._exceptions import FilterDeclarationError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-__all__ = ("FilterSpec", "collect_specs", "unwrap_optional")
+__all__ = ("Deprecation", "FilterSpec", "collect_specs", "unwrap_optional")
 
 #: Attribute names the decorators write onto filter methods.
 OPTIONS_ATTR = "__filter_options__"
 SKIP_NULL_ATTR = "__filter_skip_null__"
+DEPRECATION_ATTR = "__filter_deprecation__"
+
+
+@dataclass(frozen=True)
+class Deprecation:
+    """What ``@deprecated`` recorded about a filter on its way out."""
+
+    reason: str | None = None
+    alternative: str | None = None
 
 
 @dataclass(frozen=True)
@@ -37,6 +46,40 @@ class FilterSpec:
     skip_null: bool = False
     doc: str | None = None
     options: Mapping[str, Any] = field(default_factory=dict)
+    deprecation: Deprecation | None = None
+
+    @property
+    def deprecated(self) -> bool:
+        """Whether this filter is on its way out."""
+
+        return self.deprecation is not None
+
+    @property
+    def deprecation_message(self) -> str | None:
+        """The sentence to show a caller who still uses this filter."""
+
+        if self.deprecation is None:
+            return None
+
+        message = self.deprecation.reason or f"The {self.name!r} filter is deprecated."
+
+        if self.deprecation.alternative:
+            message = f"{message} Use {self.deprecation.alternative!r} instead."
+
+        return message
+
+    @property
+    def schema_description(self) -> str | None:
+        """The description the generated schema field should carry.
+
+        The docstring, with the deprecation note appended when there is one: OpenAPI
+        has a ``deprecated`` flag but nowhere to say why, so the why goes here.
+        """
+
+        if (message := self.deprecation_message) is None:
+            return self.doc
+
+        return f"{self.doc}\n\nDeprecated: {message}" if self.doc else f"Deprecated: {message}"
 
     @property
     def optional(self) -> bool:
@@ -96,6 +139,7 @@ class FilterSpec:
             skip_null=getattr(func, SKIP_NULL_ATTR, False),
             doc=inspect.cleandoc(func.__doc__) if func.__doc__ else None,
             options=dict(getattr(func, OPTIONS_ATTR, {})),
+            deprecation=getattr(func, DEPRECATION_ATTR, None),
         )
 
 

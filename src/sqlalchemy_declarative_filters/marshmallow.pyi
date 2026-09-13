@@ -1,7 +1,7 @@
 """Public typing surface for the Marshmallow namespace."""
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, overload
 
 from marshmallow import Schema as _MarshmallowSchema
 
@@ -42,5 +42,16 @@ def options(
 
     Constraints go through ``validate``: ``@options(validate=validate.Length(min=3))``.
     """
+
+@overload
+def deprecated(reason: _FuncT, /) -> _FuncT: ...
+@overload
+def deprecated(
+    reason: str | None = ...,
+    /,
+    *,
+    alternative: str | None = ...,
+) -> Callable[[_FuncT], _FuncT]:
+    """Flag the filter as deprecated in the generated schema."""
 
 def skip_null(func: _FuncT) -> _FuncT: ...
