@@ -7,6 +7,7 @@ __all__ = (
     "FilterDeclarationError",
     "FilterError",
     "JoinConflictWarning",
+    "RedundantSkipNullWarning",
     "UnknownFilterError",
 )
 
@@ -40,4 +41,13 @@ class JoinConflictWarning(UserWarning):
     The join already in place wins, whether an earlier filter added it or the caller
     did before handing the statement over. Make the ``self.join(...)`` calls agree, or
     alias the target so the two joins address distinct selectables.
+    """
+
+
+class RedundantSkipNullWarning(UserWarning):
+    """``@skip_null`` was applied to a filter that declares no default.
+
+    Such a filter is already skipped when its value is ``None``, so the decorator
+    changes nothing. Give the value parameter a default if the filter was meant to
+    apply on its own, or drop the decorator.
     """

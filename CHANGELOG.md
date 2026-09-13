@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `@skip_null` on a filter that declares no default now warns with
+  `RedundantSkipNullWarning`: such a filter is already skipped when its value is
+  `None`, so the decorator changes nothing. ([#1])
+
+[#1]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/1
+
 ## [0.1.0] - 2026-09-07
 
 ### Added

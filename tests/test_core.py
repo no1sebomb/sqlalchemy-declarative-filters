@@ -3,6 +3,7 @@
 import dataclasses
 import datetime
 import decimal
+import warnings
 
 import pytest
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from sqlalchemy_declarative_filters import (
     FilterDeclarationError,
     Filters,
     JoinConflictWarning,
+    RedundantSkipNullWarning,
     Statement,
     UnknownFilterError,
     options,
@@ -337,6 +339,45 @@ def test_a_filter_must_take_exactly_one_value():
     class Bad(Filters):
         def oops(self, first: int, second: int):
             return self
+
+    with pytest.raises(FilterDeclarationError, match="exactly one parameter"):
+        _ = Bad.Schema
+
+
+def test_skip_null_without_a_default_warns():
+    with pytest.warns(RedundantSkipNullWarning, match="declares no default"):
+
+        class Pointless(Filters):
+            @skip_null
+            def title(self, value: str):
+                """Books whose title contains this."""
+
+                return self.where(Book.title.ilike(f"%{value}%"))
+
+
+def test_skip_null_with_a_default_does_not_warn():
+    class Fine(Filters):
+        @skip_null
+        def availability(self, value: Availability = Availability.IN_PRINT):
+            """Books with this availability. Pass null for any."""
+
+            return self.where(Book.availability == value)
+
+    # `filterwarnings = ["error"]` would already have failed the class body above;
+    # the decorator still has to have done its job.
+    assert Fine.__filters__[0].skip_null
+
+
+def test_skip_null_leaves_a_malformed_filter_to_the_spec():
+    # Two value parameters: the signature is not a filter's, so the decorator says
+    # nothing and `from_function` reports the real problem when the schema is built.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+
+        class Bad(Filters):
+            @skip_null
+            def oops(self, first: int, second: int):
+                return self
 
     with pytest.raises(FilterDeclarationError, match="exactly one parameter"):
         _ = Bad.Schema

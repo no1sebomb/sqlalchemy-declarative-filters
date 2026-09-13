@@ -90,7 +90,9 @@ A filter with **no default** is skipped when its value is `None`; omitting it is
 you say "do not filter on this". A filter **with** a default is always applied, even
 when the caller does not mention it. To let a caller switch a default off, add
 `@skip_null`: the field then accepts `None`, and the strings `""`, `"null"` and
-`"none"` so a query string can say it too.
+`"none"` so a query string can say it too. On a filter with no default there is
+nothing for null to switch off, so `@skip_null` there warns with
+`RedundantSkipNullWarning`.
 
 Filters are inherited, so a project usually defines one base and extends it. A
 subclass redefining a name overrides that filter in place.

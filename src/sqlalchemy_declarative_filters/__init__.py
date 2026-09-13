@@ -15,6 +15,7 @@ from ._exceptions import (
     FilterDeclarationError,
     FilterError,
     JoinConflictWarning,
+    RedundantSkipNullWarning,
     UnknownFilterError,
 )
 from ._joins import Statement
@@ -33,6 +34,7 @@ __all__ = (
     "Filters",
     "FiltersMeta",
     "JoinConflictWarning",
+    "RedundantSkipNullWarning",
     "Statement",
     "UnknownFilterError",
     "__version__",
