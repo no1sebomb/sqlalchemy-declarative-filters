@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __all__ = (
     "BackendNotAvailableError",
+    "FilterConditionError",
     "FilterDeclarationError",
     "FilterError",
     "JoinConflictWarning",
@@ -20,6 +21,15 @@ class FilterDeclarationError(FilterError, TypeError):
     """A filter method is declared incorrectly.
 
     Raised while the schema is being built, not while it is being applied.
+    """
+
+
+class FilterConditionError(FilterError):
+    """The applied filters cannot be reduced to a bare ``WHERE`` clause.
+
+    Raised by ``condition()`` when a filter adds a join or a ``HAVING`` clause: those
+    live on the statement, not in the clause, so there is nothing to hand back. Use
+    ``query()`` or ``apply()``, which return the statement itself.
     """
 
 

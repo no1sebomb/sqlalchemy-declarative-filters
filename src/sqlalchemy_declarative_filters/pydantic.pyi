@@ -1,16 +1,18 @@
 """Public typing surface for the Pydantic namespace."""
 
 from collections.abc import Callable
-from typing import Any, TypeVar, overload
+from typing import Any, Generic, overload
 
 from pydantic import BaseModel
 from pydantic.json_schema import JsonSchemaValue
+from typing_extensions import TypeVar
 
 from . import Filters as _DataclassFilters
 from . import FiltersMeta
 from . import Statement as Statement
 
 _FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
+_ModelT = TypeVar("_ModelT", default=Any)
 
 class PydanticFiltersMeta(FiltersMeta):
     @property
@@ -20,7 +22,11 @@ class PydanticFiltersMeta(FiltersMeta):
     @property
     def Pydantic(cls) -> type[BaseModel]: ...
 
-class PydanticFilters(_DataclassFilters, metaclass=PydanticFiltersMeta): ...
+class PydanticFilters(
+    _DataclassFilters[_ModelT],
+    Generic[_ModelT],
+    metaclass=PydanticFiltersMeta,
+): ...
 
 Filters = PydanticFilters
 

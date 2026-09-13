@@ -223,6 +223,20 @@ def test_joins_are_planned_from_a_loaded_dict_too():
     assert sql(statement).count("JOIN author") == 1
 
 
+def test_the_type_parameter_works_in_this_namespace_too():
+    class Catalogue(Filters[Book]):
+        """Filters that say what they filter."""
+
+        def title(self, value: str):
+            """Books whose title contains this."""
+
+            return self.where(Book.title.ilike(f"%{value}%"))
+
+    assert Catalogue.__model__ is Book
+    assert "FROM book" in sql(Catalogue.query({"title": "tomb"}))
+    assert "lower(book.title) LIKE lower" in str(Catalogue.condition({"title": "tomb"}))
+
+
 def test_unknown_keys_are_excluded_rather_than_raising():
     assert "isbn" not in BookFilters.Schema().load({"isbn": "978-0"})
 

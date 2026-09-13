@@ -17,11 +17,13 @@ Needs the ``marshmallow`` extra:
 
 from __future__ import annotations
 
+from typing import Generic
+
 from ._backends import get_backend
 from ._decorators import deprecated, options, skip_null
 from ._joins import Statement
 from ._meta import Filters as _Filters
-from ._meta import FiltersMeta
+from ._meta import FiltersMeta, ModelT
 
 # Fail here, with an installation hint, rather than at first schema access.
 get_backend("marshmallow")
@@ -41,7 +43,7 @@ class MarshmallowFiltersMeta(FiltersMeta):
     """Metaclass of :class:`MarshmallowFilters`; narrows the schema types for checkers."""
 
 
-class MarshmallowFilters(_Filters, metaclass=MarshmallowFiltersMeta):
+class MarshmallowFilters(_Filters[ModelT], Generic[ModelT], metaclass=MarshmallowFiltersMeta):
     """Base class whose ``Schema`` is a :class:`marshmallow.Schema` subclass."""
 
     __backend__ = "marshmallow"

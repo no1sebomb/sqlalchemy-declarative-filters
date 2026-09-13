@@ -211,6 +211,20 @@ def test_a_deprecated_filter_still_applies_from_a_model():
     assert "book.genre = " in sql(WithDeprecated.apply(select(Book), values))
 
 
+def test_the_type_parameter_works_in_this_namespace_too():
+    class Catalogue(Filters[Book]):
+        """Filters that say what they filter."""
+
+        def title(self, value: str):
+            """Books whose title contains this."""
+
+            return self.where(Book.title.ilike(f"%{value}%"))
+
+    assert Catalogue.__model__ is Book
+    assert "FROM book" in sql(Catalogue.query({"title": "tomb"}))
+    assert "lower(book.title) LIKE lower" in str(Catalogue.condition({"title": "tomb"}))
+
+
 def test_other_backends_stay_reachable():
     import dataclasses
 

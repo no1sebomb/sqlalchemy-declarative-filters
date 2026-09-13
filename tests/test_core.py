@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select
 
 from sqlalchemy_declarative_filters import (
+    FilterConditionError,
     FilterDeclarationError,
     Filters,
     JoinConflictWarning,
@@ -433,6 +434,130 @@ def test_skip_null_leaves_a_malformed_filter_to_the_spec():
                 return self
 
     with pytest.raises(FilterDeclarationError, match="exactly one parameter"):
+        _ = Bad.Schema
+
+
+# --- building the statement --------------------------------------------------------
+
+
+class CatalogueFilters(Filters[Book]):
+    """Filters that say what they filter, so they can build their own statement."""
+
+    def title(self, value: str):
+        """Books whose title contains this."""
+
+        return self.where(Book.title.ilike(f"%{value}%"))
+
+    def genre(self, value: Genre):
+        """Books of this genre."""
+
+        return self.where(Book.genre == value)
+
+
+def test_the_type_parameter_names_the_model():
+    assert CatalogueFilters.__model__ is Book
+    assert Filters.__model__ is None
+
+
+def test_an_explicit_model_is_enough_on_its_own():
+    class Explicit(Filters):
+        __model__ = Book
+
+        def title(self, value: str):
+            """Books whose title contains this."""
+
+            return self.where(Book.title == value)
+
+    assert Explicit.__model__ is Book
+    assert "FROM book" in sql(Explicit.query({"title": "tomb"}))
+
+
+def test_a_subclass_inherits_the_model():
+    class Rare(CatalogueFilters):
+        def first_edition(self, value: bool):
+            """Only first editions."""
+
+            return self.where(Book.published_in == Book.published_in) if value else self
+
+    assert Rare.__model__ is Book
+
+
+def test_query_is_apply_onto_a_select_of_the_model():
+    values = {"title": "tomb", "genre": Genre.POETRY}
+
+    assert sql(CatalogueFilters.query(values)) == sql(CatalogueFilters.apply(select(Book), values))
+
+
+def test_query_without_a_model_says_how_to_give_it_one():
+    class Anonymous(Filters):
+        def title(self, value: str):
+            """Books whose title contains this."""
+
+            return self.where(Book.title == value)
+
+    with pytest.raises(FilterDeclarationError, match="needs to know what to select"):
+        Anonymous.query({"title": "tomb"})
+
+
+def test_condition_compiles_to_a_where_clause():
+    condition = CatalogueFilters.condition({"title": "tomb"})
+    statement = select(Book.id).where(condition)
+
+    assert "lower(book.title) LIKE lower" in sql(statement)
+    assert "FROM book" in sql(statement)
+
+
+def test_condition_is_true_when_nothing_applies():
+    # So that it always composes, whatever the caller passed. A lone `true` reaches
+    # the SQL as `WHERE true`; alongside anything else SQLAlchemy drops it.
+    assert str(CatalogueFilters.condition(None)) == "true"
+
+    combined = sql(select(Book).where(Book.id == 1, CatalogueFilters.condition({})))
+
+    assert "WHERE book.id = " in combined
+    assert "true" not in combined
+
+
+def test_condition_refuses_a_filter_that_joins():
+    class WithJoin(Filters[Book]):
+        def author_name(self, value: str):
+            """Books whose author's name contains this."""
+
+            return self.join(Book.author).where(Author.name.ilike(f"%{value}%"))
+
+    with pytest.raises(FilterConditionError, match="joins author"):
+        WithJoin.condition({"author_name": "borges"})
+
+
+def test_condition_refuses_a_filter_that_adds_having():
+    class WithHaving(Filters[Book]):
+        def min_id(self, value: int):
+            """Nonsense, but it is a HAVING clause."""
+
+            return self.group_by(Book.id).having(Book.id > value)
+
+    with pytest.raises(FilterConditionError, match="HAVING"):
+        WithHaving.condition({"min_id": 3})
+
+
+def test_condition_allows_another_table_through_a_correlated_predicate():
+    class Correlated(Filters[Book]):
+        def author_country(self, value: str):
+            """Books by an author from this country."""
+
+            return self.where(Book.author.has(Author.country == value))
+
+    assert "EXISTS (SELECT 1" in str(Correlated.condition({"author_country": "AR"}))
+
+
+def test_a_filter_cannot_shadow_what_the_class_itself_provides():
+    class Bad(Filters):
+        def query(self, value: str):  # type: ignore[override]
+            """Full-text search, except it would shadow Bad.query."""
+
+            return self.where(Book.title.ilike(f"%{value}%"))
+
+    with pytest.raises(FilterDeclarationError, match="the filters class itself provides"):
         _ = Bad.Schema
 
 

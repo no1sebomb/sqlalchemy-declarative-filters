@@ -177,15 +177,22 @@ def collect_specs(cls: type, reserved: frozenset[str]) -> tuple[FilterSpec, ...]
     """
 
     specs: dict[str, FilterSpec] = {}
+    # Everything the filters class itself answers to -- apply, query, Schema and the
+    # rest. Taken from the live metaclass so a backend namespace's own additions count.
+    provided = frozenset(name for name in dir(type(cls)) if not name.startswith("_"))
 
     for _cls in reversed(cls.__mro__):
-        for name, member in _candidates(_cls, reserved):
+        for name, member in _candidates(_cls, reserved, provided):
             specs[name] = FilterSpec.from_function(name, member)
 
     return tuple(specs.values())
 
 
-def _candidates(cls: type, reserved: frozenset[str]) -> Iterator[tuple[str, Any]]:
+def _candidates(
+    cls: type,
+    reserved: frozenset[str],
+    provided: frozenset[str],
+) -> Iterator[tuple[str, Any]]:
     """Yield the ``(name, function)`` pairs of ``cls`` that look like filters."""
 
     for name, member in vars(cls).items():
@@ -206,6 +213,16 @@ def _candidates(cls: type, reserved: frozenset[str]) -> Iterator[tuple[str, Any]
                 f"keep {name!r} as the incoming parameter name, alias the field - "
                 f"@options(alias={name!r}) on Pydantic, data_key={name!r} on "
                 f"Marshmallow."
+            )
+
+        if name in provided:
+            raise FilterDeclarationError(
+                f"{cls.__qualname__}.{name} cannot be a filter: {name!r} is one of "
+                f"the things the filters class itself provides "
+                f"({', '.join(sorted(provided))}), and a filter of that name would "
+                f"shadow it. Rename it. To keep {name!r} as the incoming parameter "
+                f"name, alias the field - @options(alias={name!r}) on Pydantic, "
+                f"data_key={name!r} on Marshmallow."
             )
 
         yield name, member

@@ -186,6 +186,55 @@ def min_rating(self, value: int):  # reaches one without a join
     return self.where(Book.reviews.any(Review.rating >= value))
 ```
 
+## Applying filters
+
+`apply` narrows a statement you already have:
+
+```python
+statement = BookFilters.apply(select(Book), values)
+```
+
+Say what the class filters -- `class BookFilters(Filters[Book])` -- and two more ways
+open up, plus a type checker that holds `apply` to it:
+
+```python
+class BookFilters(Filters[Book]): ...
+
+
+statement = BookFilters.query(values)  # select(Book), filters applied
+condition = BookFilters.condition(values)  # just the WHERE clause
+
+statement = select(Book.id, Book.title).where(condition)
+```
+
+| | takes | returns |
+| --- | --- | --- |
+| `apply(statement, values)` | any statement | that statement, narrowed |
+| `query(values)` | -- | `select(Model)`, narrowed |
+| `condition(values)` | -- | one `ColumnElement[bool]` |
+
+`condition` is for the places that build the statement themselves. It is `true()` when
+nothing applies, so it always composes, and SQLAlchemy drops it from the SQL when it
+is combined with anything else. Filters that need more than a clause -- one that
+joins, or adds a `HAVING` -- cannot be expressed as one, and raise
+`FilterConditionError`: use `query` or `apply` for those, or reach the other table
+through a correlated predicate such as `Book.author.has(...)`.
+
+`query` and `condition` need to know the model. The type parameter is the usual way to
+say it; `__model__ = Book` in the class body does the same job and wins where both are
+present. `apply` needs neither -- it is handed a statement.
+
+### What the type parameter checks
+
+```python
+statement = select(Author)
+statement = BookFilters.apply(statement, values)  # type error: BookFilters filters Book
+```
+
+It is a static claim only -- nothing at runtime stops you passing a statement over
+another table, exactly as before. A class declared as plain `Filters` is unparameterised
+and checked no more than it used to be.
+
 ## Picking a backend
 
 The three namespaces export the same names, so a project changes backend by editing
@@ -374,7 +423,10 @@ BookFilters.Dataclass  # the same filters as a dataclass
 BookFilters.Pydantic  # ... as a Pydantic model
 BookFilters.Marshmallow  # ... as a Marshmallow schema
 BookFilters.apply(statement, values=None)  # values: a mapping, a schema instance, or None
+BookFilters.query(values=None)  # select(model), with the filters applied
+BookFilters.condition(values=None)  # the filters as one WHERE clause
 BookFilters.__filters__  # the collected FilterSpec objects
+BookFilters.__model__  # what it filters, from Filters[Book] or from __model__
 ```
 
 Class attributes you can set on a filters class:
@@ -383,6 +435,7 @@ Class attributes you can set on a filters class:
 __backend__  # "dataclass" | "pydantic" | "marshmallow"; normally set by the base
 __null_strings__  # strings that mean null on a @skip_null filter
 __schema_name__  # overrides the generated schema's class name
+__model__  # what the class filters, when Filters[Book] is not how you want to say it
 ```
 
 `Statement` is what `self` is and what a filter returns, so under a strict type checker
@@ -404,6 +457,7 @@ The decorators, all importable from whichever namespace `Filters` came from:
 
 Errors all derive from `FilterError`: `FilterDeclarationError` for a filter that cannot
 be turned into a field, `UnknownFilterError` for a value with no matching filter,
+`FilterConditionError` for filters `condition()` cannot express as a clause,
 `BackendNotAvailableError` when an extra is missing. Warnings: `JoinConflictWarning`
 for two filters joining the same target differently, `RedundantSkipNullWarning` for
 `@skip_null` on a filter with no default.

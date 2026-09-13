@@ -975,6 +975,7 @@ name = "sqlalchemy-declarative-filters"
 source = { editable = "." }
 dependencies = [
     { name = "sqlalchemy" },
+    { name = "typing-extensions" },
 ]
 
 [package.optional-dependencies]
@@ -999,6 +1000,7 @@ requires-dist = [
     { name = "marshmallow", marker = "extra == 'marshmallow'", specifier = ">=3.18,<5.0" },
     { name = "pydantic", marker = "extra == 'pydantic'", specifier = ">=2.0,<3.0" },
     { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+    { name = "typing-extensions", specifier = ">=4.6" },
 ]
 provides-extras = ["marshmallow", "pydantic"]
 

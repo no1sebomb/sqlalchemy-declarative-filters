@@ -11,11 +11,13 @@ Needs the ``pydantic`` extra: ``pip install sqlalchemy-declarative-filters[pydan
 
 from __future__ import annotations
 
+from typing import Generic
+
 from ._backends import get_backend
 from ._decorators import deprecated, options, skip_null
 from ._joins import Statement
 from ._meta import Filters as _Filters
-from ._meta import FiltersMeta
+from ._meta import FiltersMeta, ModelT
 
 # Fail here, with an installation hint, rather than at first schema access.
 get_backend("pydantic")
@@ -35,7 +37,7 @@ class PydanticFiltersMeta(FiltersMeta):
     """Metaclass of :class:`PydanticFilters`; narrows the schema types for checkers."""
 
 
-class PydanticFilters(_Filters, metaclass=PydanticFiltersMeta):
+class PydanticFilters(_Filters[ModelT], Generic[ModelT], metaclass=PydanticFiltersMeta):
     """Base class whose ``Schema`` is a :class:`pydantic.BaseModel` subclass."""
 
     __backend__ = "pydantic"

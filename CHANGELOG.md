@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `Filters` takes the model it filters as a type parameter:
+  `class BookFilters(Filters[Book])`. A type checker then holds `apply` to it, so
+  passing a statement over another table is an error. Unparameterised classes are
+  checked exactly as before. ([#3])
+- `query(values)` builds `select(model)` with the filters applied, and
+  `condition(values)` compiles them to one `WHERE` clause for statements you build
+  yourself. Both read the model from the type parameter, or from an explicit
+  `__model__`. Filters that add a join or a `HAVING` cannot be a bare clause and raise
+  the new `FilterConditionError`. ([#4])
 - `@deprecated` marks a filter as on its way out. The filter keeps working; the
   generated schema field is flagged deprecated -- `"deprecated": true` in the OpenAPI
   document -- and the reason, or the filter to use instead, is appended to the field's
@@ -17,8 +26,20 @@ All notable changes to this project are documented here. The format follows
   `RedundantSkipNullWarning`: such a filter is already skipped when its value is
   `None`, so the decorator changes nothing. ([#1])
 
+### Changed
+
+- A filter may no longer be named after something the filters class itself provides
+  (`apply`, `query`, `condition`, `build_schema`, `Schema` and the rest); such a
+  filter shadowed the method instead of being applied. It now raises
+  `FilterDeclarationError`, the way the reserved statement methods already did.
+- A declaration error reaching `Schema` is no longer re-raised as a backend error:
+  `FilterDeclarationError` is a `TypeError`, so it was being caught by the handler
+  that explains `@options` mismatches.
+
 [#1]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/1
 [#2]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/2
+[#3]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/3
+[#4]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/4
 
 ## [0.1.0] - 2026-09-07
 

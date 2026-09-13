@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, get_args, get_origin
+
+from sqlalchemy import select, true
 
 from ._backends import SchemaRequest, get_backend
-from ._exceptions import FilterDeclarationError, UnknownFilterError
-from ._joins import JoinTracker, Statement, unwrap
+from ._exceptions import FilterConditionError, FilterDeclarationError, UnknownFilterError
+from ._joins import JoinTracker, Statement, existing_joins, unwrap
 from ._spec import collect_specs
 
 if TYPE_CHECKING:
@@ -15,10 +17,17 @@ if TYPE_CHECKING:
 
     from ._spec import FilterSpec
 
-__all__ = ("Filters", "FiltersMeta")
+__all__ = ("Filters", "FiltersMeta", "ModelT")
 
 #: Names the statement offers a filter body, so they are never filter names.
 _RESERVED: frozenset[str] = frozenset({"where", "having", "join", "outerjoin", "unwrap"})
+
+#: The type parameter naming what a filters class filters: ``Filters[Book]``.
+#: Public to the package so each backend namespace can stay generic too.
+ModelT = TypeVar("ModelT")
+
+#: Tells "resolved to no model" apart from "not resolved yet".
+_UNRESOLVED: Any = object()
 
 
 class _SchemaAccessor:
@@ -87,6 +96,22 @@ class FiltersMeta(type):
 
         return cls.__dict__["__filter_specs__"]  # type: ignore[no-any-return]
 
+    @property
+    def __model__(cls) -> Any:
+        """What this class filters, or ``None`` when it does not say.
+
+        Either the type parameter -- ``class BookFilters(Filters[Book])`` -- or an
+        explicit ``__model__ = Book`` in the class body, which wins. Only the methods
+        that build a statement of their own need it; ``apply`` is handed one.
+        """
+
+        cached = cls.__dict__.get("__model_cache__", _UNRESOLVED)
+
+        if cached is _UNRESOLVED:
+            cached = cls.__model_cache__ = _resolve_model(cls)
+
+        return cached
+
     def build_schema(cls, backend: str | None = None) -> type[Any]:
         """Return this class's schema for ``backend``, building it once.
 
@@ -100,9 +125,12 @@ class FiltersMeta(type):
         if (schema := cache.get(name)) is None:
             # Not exists yet, need to build
             implementation = get_backend(name)
+            # Collected outside the try: a declaration error is not the backend's
+            # doing, and FilterDeclarationError is itself a TypeError.
+            request = cls._schema_request()
 
             try:
-                schema = cache[name] = implementation.build(cls._schema_request())
+                schema = cache[name] = implementation.build(request)
             except TypeError as exc:
                 raise FilterDeclarationError(
                     f"The {name!r} backend could not build a schema for "
@@ -151,6 +179,52 @@ class FiltersMeta(type):
 
         return unwrap(current)
 
+    def query(cls, values: Any = None) -> Any:
+        """Select this class's model, with the filters in ``values`` applied.
+
+        ``BookFilters.query(values)`` is ``BookFilters.apply(select(Book), values)``,
+        for the common case where the statement is a plain select of the model the
+        filters are written against.
+
+        Needs the model: parameterize the class as ``Filters[Book]``, or set
+        ``__model__``.
+        """
+
+        return cls.apply(select(cls._model("query")), values)
+
+    def condition(cls, values: Any = None) -> Any:
+        """Compile the filters in ``values`` into one ``WHERE`` clause.
+
+        For the places that build the statement themselves::
+
+            statement = select(Book).where(BookFilters.condition(values))
+
+        The clause is ``true()`` when nothing applies, so it always composes. Filters
+        that need more than a clause -- a join, a ``HAVING`` -- cannot be expressed
+        this way and raise :class:`~._exceptions.FilterConditionError`; use
+        :meth:`query` or :meth:`apply` for those.
+        """
+
+        base = select(cls._model("condition"))
+        statement = cls.apply(base, values)
+
+        _reject_unrepresentable(cls, base, statement)
+
+        return statement.whereclause if statement.whereclause is not None else true()
+
+    def _model(cls, method: str) -> Any:
+        """The model :meth:`query` and :meth:`condition` build their statement from."""
+
+        if (model := cls.__model__) is None:
+            raise FilterDeclarationError(
+                f"{cls.__name__}.{method}() needs to know what to select from, and "
+                f"{cls.__name__} does not say. Name it in the class declaration, as "
+                f"`class {cls.__name__}(Filters[Book])`, or set `__model__ = Book` in "
+                f"the body. {cls.__name__}.apply(statement, values) needs neither."
+            )
+
+        return model
+
     def _schema_request(cls) -> SchemaRequest:
         """Package this class up for a backend to render."""
 
@@ -161,6 +235,53 @@ class FiltersMeta(type):
             specs=cls.__filters__,
             null_strings=frozenset(cls.__null_strings__),
         )
+
+
+def _resolve_model(cls: type) -> Any:
+    """Find what ``cls`` filters, walking up to the base that says.
+
+    An explicit ``__model__`` anywhere in the MRO wins over a type parameter on the
+    same class, so a subclass can pin the model of a generic base.
+    """
+
+    for klass in cls.__mro__:
+        if (explicit := klass.__dict__.get("__model__")) is not None:
+            return explicit
+
+        for base in klass.__dict__.get("__orig_bases__", ()):
+            if not isinstance(get_origin(base), FiltersMeta):
+                # Some other generic base -- Generic[T] itself, or a mixin.
+                continue
+
+            for argument in get_args(base):
+                if not isinstance(argument, TypeVar):
+                    return argument
+
+    return None
+
+
+def _reject_unrepresentable(cls: type, base: Any, statement: Any) -> None:
+    """Refuse to hand back a clause that would silently lose part of the filtering."""
+
+    joined = set(existing_joins(statement)) - set(existing_joins(base))
+    having = getattr(statement, "_having_criteria", ())
+
+    if not joined and not having:
+        return
+
+    culprit = (
+        f"joins {', '.join(sorted(str(selectable) for selectable in joined))}"
+        if joined
+        else "adds a HAVING clause"
+    )
+
+    raise FilterConditionError(
+        f"{cls.__name__}.condition() cannot express these filters as a WHERE clause: "
+        f"one of them {culprit}, which lives on the statement rather than in the "
+        f"clause. Use {cls.__name__}.query(values) or {cls.__name__}.apply(statement, "
+        f"values), or reach the other table through a correlated predicate such as "
+        f"Book.author.has(...)."
+    )
 
 
 def _active(
@@ -212,7 +333,7 @@ def _to_mapping(cls: type, values: Any) -> Mapping[str, Any]:
         ) from None
 
 
-class Filters(metaclass=FiltersMeta):
+class Filters(Generic[ModelT], metaclass=FiltersMeta):
     """Base class for a set of filters.
 
     Every public method in the body is a filter. It takes the statement being built as
@@ -226,6 +347,11 @@ class Filters(metaclass=FiltersMeta):
 
     The parameter's annotation becomes the schema field's type, its default becomes
     the field's default, and the docstring becomes the field's description.
+
+    Naming what the class filters -- ``class BookFilters(Filters[Book])`` -- is
+    optional. It gives type checkers something to check ``apply`` against, and tells
+    :meth:`~FiltersMeta.query` and :meth:`~FiltersMeta.condition` what to build their
+    statement from.
     """
 
     #: Which backend :attr:`Schema` uses. Set by the base class you inherit from.

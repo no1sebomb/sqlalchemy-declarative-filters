@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-dependencies = ["SQLAlchemy>=2.0,<3.0"]
+dependencies = ["SQLAlchemy>=2.0,<3.0", "typing-extensions>=4.6"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
@@ -98,6 +98,8 @@ select = [
 [tool.mypy]
 python_version = "3.10"
 files = ["src", "tests"]
+# Half of it is meant to fail; tests/test_typing.py runs mypy over it and checks that.
+exclude = ["tests/typing/"]
 strict = true
 warn_unreachable = true
 enable_error_code = ["redundant-expr", "truthy-bool", "ignore-without-code"]

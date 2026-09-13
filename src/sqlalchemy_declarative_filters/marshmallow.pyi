@@ -1,15 +1,17 @@
 """Public typing surface for the Marshmallow namespace."""
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any, TypeVar, overload
+from typing import Any, Generic, overload
 
 from marshmallow import Schema as _MarshmallowSchema
+from typing_extensions import TypeVar
 
 from . import Filters as _DataclassFilters
 from . import FiltersMeta
 from . import Statement as Statement
 
 _FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
+_ModelT = TypeVar("_ModelT", default=Any)
 _Validator = Callable[[Any], Any]
 
 class MarshmallowFiltersMeta(FiltersMeta):
@@ -20,7 +22,11 @@ class MarshmallowFiltersMeta(FiltersMeta):
     @property
     def Marshmallow(cls) -> type[_MarshmallowSchema]: ...
 
-class MarshmallowFilters(_DataclassFilters, metaclass=MarshmallowFiltersMeta): ...
+class MarshmallowFilters(
+    _DataclassFilters[_ModelT],
+    Generic[_ModelT],
+    metaclass=MarshmallowFiltersMeta,
+): ...
 
 Filters = MarshmallowFilters
 

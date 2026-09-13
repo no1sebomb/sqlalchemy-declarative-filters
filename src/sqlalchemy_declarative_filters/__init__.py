@@ -12,6 +12,7 @@ from __future__ import annotations
 from ._decorators import deprecated, options, skip_null
 from ._exceptions import (
     BackendNotAvailableError,
+    FilterConditionError,
     FilterDeclarationError,
     FilterError,
     JoinConflictWarning,
@@ -29,6 +30,7 @@ DataclassFilters = Filters
 __all__ = (
     "BackendNotAvailableError",
     "DataclassFilters",
+    "FilterConditionError",
     "FilterDeclarationError",
     "FilterError",
     "Filters",
