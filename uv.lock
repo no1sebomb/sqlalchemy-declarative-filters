@@ -1007,7 +1007,7 @@ provides-extras = ["marshmallow", "pydantic"]
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.5" },
-    { name = "mypy", specifier = ">=1.11" },
+    { name = "mypy", specifier = ">=1.12" },
     { name = "pre-commit", specifier = ">=3.7" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.6" },
