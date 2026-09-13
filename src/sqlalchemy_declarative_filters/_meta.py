@@ -179,18 +179,18 @@ class FiltersMeta(type):
 
         return unwrap(current)
 
-    def query(cls, values: Any = None) -> Any:
+    def statement(cls, values: Any = None) -> Any:
         """Select this class's model, with the filters in ``values`` applied.
 
-        ``BookFilters.query(values)`` is ``BookFilters.apply(select(Book), values)``,
-        for the common case where the statement is a plain select of the model the
-        filters are written against.
+        ``BookFilters.statement(values)`` is
+        ``BookFilters.apply(select(Book), values)``, for the common case where the
+        statement is a plain select of the model the filters are written against.
 
         Needs the model: parameterize the class as ``Filters[Book]``, or set
         ``__model__``.
         """
 
-        return cls.apply(select(cls._model("query")), values)
+        return cls.apply(select(cls._model("statement")), values)
 
     def condition(cls, values: Any = None) -> Any:
         """Compile the filters in ``values`` into one ``WHERE`` clause.
@@ -202,7 +202,7 @@ class FiltersMeta(type):
         The clause is ``true()`` when nothing applies, so it always composes. Filters
         that need more than a clause -- a join, a ``HAVING`` -- cannot be expressed
         this way and raise :class:`~._exceptions.FilterConditionError`; use
-        :meth:`query` or :meth:`apply` for those.
+        :meth:`statement` or :meth:`apply` for those.
         """
 
         base = select(cls._model("condition"))
@@ -213,7 +213,7 @@ class FiltersMeta(type):
         return statement.whereclause if statement.whereclause is not None else true()
 
     def _model(cls, method: str) -> Any:
-        """The model :meth:`query` and :meth:`condition` build their statement from."""
+        """The model :meth:`statement` and :meth:`condition` are built from."""
 
         if (model := cls.__model__) is None:
             raise FilterDeclarationError(
@@ -278,7 +278,7 @@ def _reject_unrepresentable(cls: type, base: Any, statement: Any) -> None:
     raise FilterConditionError(
         f"{cls.__name__}.condition() cannot express these filters as a WHERE clause: "
         f"one of them {culprit}, which lives on the statement rather than in the "
-        f"clause. Use {cls.__name__}.query(values) or {cls.__name__}.apply(statement, "
+        f"clause. Use {cls.__name__}.statement(values) or {cls.__name__}.apply(stmt, "
         f"values), or reach the other table through a correlated predicate such as "
         f"Book.author.has(...)."
     )
@@ -350,8 +350,8 @@ class Filters(Generic[ModelT], metaclass=FiltersMeta):
 
     Naming what the class filters -- ``class BookFilters(Filters[Book])`` -- is
     optional. It gives type checkers something to check ``apply`` against, and tells
-    :meth:`~FiltersMeta.query` and :meth:`~FiltersMeta.condition` what to build their
-    statement from.
+    :meth:`~FiltersMeta.statement` and :meth:`~FiltersMeta.condition` what to build
+    their statement from.
     """
 
     #: Which backend :attr:`Schema` uses. Set by the base class you inherit from.

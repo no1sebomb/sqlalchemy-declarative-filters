@@ -29,7 +29,7 @@ class FilterConditionError(FilterError):
 
     Raised by ``condition()`` when a filter adds a join or a ``HAVING`` clause: those
     live on the statement, not in the clause, so there is nothing to hand back. Use
-    ``query()`` or ``apply()``, which return the statement itself.
+    ``statement()`` or ``apply()``, which return the statement itself.
     """
 
 

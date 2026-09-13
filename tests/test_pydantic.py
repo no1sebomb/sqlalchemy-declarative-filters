@@ -221,7 +221,7 @@ def test_the_type_parameter_works_in_this_namespace_too():
             return self.where(Book.title.ilike(f"%{value}%"))
 
     assert Catalogue.__model__ is Book
-    assert "FROM book" in sql(Catalogue.query({"title": "tomb"}))
+    assert "FROM book" in sql(Catalogue.statement({"title": "tomb"}))
     assert "lower(book.title) LIKE lower" in str(Catalogue.condition({"title": "tomb"}))
 
 

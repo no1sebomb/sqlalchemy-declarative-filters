@@ -201,7 +201,7 @@ open up, plus a type checker that holds `apply` to it:
 class BookFilters(Filters[Book]): ...
 
 
-statement = BookFilters.query(values)  # select(Book), filters applied
+statement = BookFilters.statement(values)  # select(Book), filters applied
 condition = BookFilters.condition(values)  # just the WHERE clause
 
 statement = select(Book.id, Book.title).where(condition)
@@ -210,17 +210,17 @@ statement = select(Book.id, Book.title).where(condition)
 | | takes | returns |
 | --- | --- | --- |
 | `apply(statement, values)` | any statement | that statement, narrowed |
-| `query(values)` | -- | `select(Model)`, narrowed |
+| `statement(values)` | -- | `select(Model)`, narrowed |
 | `condition(values)` | -- | one `ColumnElement[bool]` |
 
 `condition` is for the places that build the statement themselves. It is `true()` when
 nothing applies, so it always composes, and SQLAlchemy drops it from the SQL when it
 is combined with anything else. Filters that need more than a clause -- one that
 joins, or adds a `HAVING` -- cannot be expressed as one, and raise
-`FilterConditionError`: use `query` or `apply` for those, or reach the other table
+`FilterConditionError`: use `statement` or `apply` for those, or reach the other table
 through a correlated predicate such as `Book.author.has(...)`.
 
-`query` and `condition` need to know the model. The type parameter is the usual way to
+`statement` and `condition` need to know the model. The type parameter is the usual way to
 say it; `__model__ = Book` in the class body does the same job and wins where both are
 present. `apply` needs neither -- it is handed a statement.
 
@@ -423,7 +423,7 @@ BookFilters.Dataclass  # the same filters as a dataclass
 BookFilters.Pydantic  # ... as a Pydantic model
 BookFilters.Marshmallow  # ... as a Marshmallow schema
 BookFilters.apply(statement, values=None)  # values: a mapping, a schema instance, or None
-BookFilters.query(values=None)  # select(model), with the filters applied
+BookFilters.statement(values=None)  # select(model), with the filters applied
 BookFilters.condition(values=None)  # the filters as one WHERE clause
 BookFilters.__filters__  # the collected FilterSpec objects
 BookFilters.__model__  # what it filters, from Filters[Book] or from __model__

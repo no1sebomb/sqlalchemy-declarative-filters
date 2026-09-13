@@ -123,7 +123,10 @@ class Filters(Statement, Generic[_ModelT], metaclass=FiltersMeta):
         values: Mapping[str, Any] | Any | None = ...,
     ) -> _OtherStatementT: ...
     @classmethod
-    def query(cls, values: Mapping[str, Any] | Any | None = ...) -> Select[tuple[_ModelT]]:
+    def statement(
+        cls,
+        values: Mapping[str, Any] | Any | None = ...,
+    ) -> Select[tuple[_ModelT]]:
         """``apply(select(model), values)``, for a plain select of the model."""
 
     @classmethod

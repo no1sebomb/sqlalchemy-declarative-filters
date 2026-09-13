@@ -177,8 +177,8 @@ def collect_specs(cls: type, reserved: frozenset[str]) -> tuple[FilterSpec, ...]
     """
 
     specs: dict[str, FilterSpec] = {}
-    # Everything the filters class itself answers to -- apply, query, Schema and the
-    # rest. Taken from the live metaclass so a backend namespace's own additions count.
+    # Everything the filters class itself answers to -- apply, statement, Schema and
+    # the rest. From the live metaclass, so a namespace's own additions count too.
     provided = frozenset(name for name in dir(type(cls)) if not name.startswith("_"))
 
     for _cls in reversed(cls.__mro__):

@@ -51,7 +51,7 @@ values = {"title": "tomb"}
 
 # The statement selects what the class filters.
 book_statement: sa.Select[tuple[Book]] = BookFilters.apply(sa.select(Book), values)
-book_query: sa.Select[tuple[Book]] = BookFilters.query(values)
+book_built: sa.Select[tuple[Book]] = BookFilters.statement(values)
 book_condition: sa.ColumnElement[bool] = BookFilters.condition(values)
 sa.select(Book).where(BookFilters.condition(values))
 
@@ -69,4 +69,4 @@ author_statement: sa.Select[tuple[Author]] = LooseFilters.apply(other_statement,
 narrowed: sa.Exists = BookFilters.apply(sa.exists(sa.select(Book)), values)
 
 # The return type follows the statement, not the other way round.
-wrong_return: sa.Select[tuple[Author]] = BookFilters.query(values)  # type-error
+wrong_return: sa.Select[tuple[Author]] = BookFilters.statement(values)  # type-error

@@ -469,7 +469,7 @@ def test_an_explicit_model_is_enough_on_its_own():
             return self.where(Book.title == value)
 
     assert Explicit.__model__ is Book
-    assert "FROM book" in sql(Explicit.query({"title": "tomb"}))
+    assert "FROM book" in sql(Explicit.statement({"title": "tomb"}))
 
 
 def test_a_subclass_inherits_the_model():
@@ -482,13 +482,15 @@ def test_a_subclass_inherits_the_model():
     assert Rare.__model__ is Book
 
 
-def test_query_is_apply_onto_a_select_of_the_model():
+def test_statement_is_apply_onto_a_select_of_the_model():
     values = {"title": "tomb", "genre": Genre.POETRY}
 
-    assert sql(CatalogueFilters.query(values)) == sql(CatalogueFilters.apply(select(Book), values))
+    assert sql(CatalogueFilters.statement(values)) == sql(
+        CatalogueFilters.apply(select(Book), values)
+    )
 
 
-def test_query_without_a_model_says_how_to_give_it_one():
+def test_statement_without_a_model_says_how_to_give_it_one():
     class Anonymous(Filters):
         def title(self, value: str):
             """Books whose title contains this."""
@@ -496,7 +498,7 @@ def test_query_without_a_model_says_how_to_give_it_one():
             return self.where(Book.title == value)
 
     with pytest.raises(FilterDeclarationError, match="needs to know what to select"):
-        Anonymous.query({"title": "tomb"})
+        Anonymous.statement({"title": "tomb"})
 
 
 def test_condition_compiles_to_a_where_clause():
@@ -552,13 +554,26 @@ def test_condition_allows_another_table_through_a_correlated_predicate():
 
 def test_a_filter_cannot_shadow_what_the_class_itself_provides():
     class Bad(Filters):
-        def query(self, value: str):  # type: ignore[override]
-            """Full-text search, except it would shadow Bad.query."""
+        def apply(self, value: str):  # type: ignore[override]
+            """A filter that would shadow Bad.apply rather than run."""
 
             return self.where(Book.title.ilike(f"%{value}%"))
 
     with pytest.raises(FilterDeclarationError, match="the filters class itself provides"):
         _ = Bad.Schema
+
+
+def test_query_is_an_ordinary_filter_name():
+    # It is what a full-text search parameter is usually called, so nothing the class
+    # provides may be named that.
+    class Search(Filters[Book]):
+        def query(self, value: str):
+            """Books matching this search."""
+
+            return self.where(Book.title.ilike(f"%{value}%"))
+
+    assert [f.name for f in dataclasses.fields(Search.Schema)] == ["query"]
+    assert "lower(book.title) LIKE lower" in sql(Search.statement({"query": "tomb"}))
 
 
 # --- joins -------------------------------------------------------------------------
