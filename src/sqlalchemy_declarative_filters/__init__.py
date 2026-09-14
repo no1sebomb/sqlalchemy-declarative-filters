@@ -22,7 +22,7 @@ from ._exceptions import (
 from ._joins import Statement
 from ._meta import Filters, FiltersMeta
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 #: Explicit alias, for when more than one backend's base is in the same module.
 DataclassFilters = Filters

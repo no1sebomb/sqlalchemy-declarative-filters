@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-14
+
 ### Added
 
 - `Filters` takes the model it filters as a type parameter:
@@ -32,6 +34,10 @@ All notable changes to this project are documented here. The format follows
   (`apply`, `statement`, `condition`, `build_schema`, `Schema` and the rest); such a
   filter shadowed the method instead of being applied. It now raises
   `FilterDeclarationError`, the way the reserved statement methods already did.
+- `typing-extensions>=4.6` is now a declared dependency. The stubs give the model
+  type parameter a PEP 696 default, so a plain `Filters` stays usable under
+  `disallow_any_generics`. SQLAlchemy already required it, so nothing new is
+  installed.
 - A declaration error reaching `Schema` is no longer re-raised as a backend error:
   `FilterDeclarationError` is a `TypeError`, so it was being caught by the handler
   that explains `@options` mismatches.
@@ -67,5 +73,6 @@ All notable changes to this project are documented here. The format follows
 - Filters are inherited, so a project can define one base class and extend it.
 - Typed: `py.typed` plus stubs for the three public namespaces.
 
-[Unreleased]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/releases/tag/v0.1.0
