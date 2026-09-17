@@ -368,3 +368,18 @@ def test_apply_takes_the_params_model_and_so_does_each_part():
         "ORDER BY book.released_on DESC, book.id DESC"
     )
     assert "ORDER BY" not in sql(BookFilters.apply(select(Book), values))
+
+
+def test_a_sorting_class_with_no_sorts_builds_an_empty_model():
+    class EmptySorting(Sorting[Book]):
+        """Nothing to order by yet."""
+
+    class EmptyParams(Params[Book]):
+        filters = BookFilters
+        sorting = EmptySorting
+
+    # An empty Literal is not a type Pydantic can build a field from, so neither the
+    # sorting model nor the combined one gets a sort field at all.
+    assert EmptySorting.Schema.model_fields == {}
+    assert "sort_by" not in EmptyParams.Schema.model_fields
+    assert "title" in EmptyParams.Schema.model_fields

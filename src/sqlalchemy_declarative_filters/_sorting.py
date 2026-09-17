@@ -207,7 +207,15 @@ class _SortConfig:
         return value if self.style is OrderStyle.DESC_FLAG else not value
 
     def fields(self) -> tuple[FilterSpec, ...]:
-        """The schema fields, described the way the backends already render filters."""
+        """The schema fields, described the way the backends already render filters.
+
+        None at all when the class declares no sorts: there is nothing for the sort
+        field to choose from, so a class still being written -- or a base others add
+        their sorts to -- contributes no fields rather than an empty ``Literal``.
+        """
+
+        if not self.specs:
+            return ()
 
         fields = [self._sort_field()]
 
@@ -431,12 +439,6 @@ class SortingMeta(SchemaMeta):
         """Package this class up for a backend to render."""
 
         config = cls._config()
-
-        if not config.specs:
-            raise FilterDeclarationError(
-                f"{cls.__name__} declares no sorts, so there is nothing for its "
-                f"{config.sort_field!r} field to choose from."
-            )
 
         return SchemaRequest(
             name=getattr(cls, "__schema_name__", None) or f"{cls.__name__}Schema",

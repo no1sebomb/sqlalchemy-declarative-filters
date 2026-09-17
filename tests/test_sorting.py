@@ -195,9 +195,14 @@ def test_the_sort_and_order_fields_must_differ():
         Clashing.apply(select(Book), {})
 
 
-def test_a_class_with_no_sorts_has_no_schema():
-    with pytest.raises(FilterDeclarationError, match="declares no sorts"):
-        _ = Sorting.Schema
+def test_a_class_with_no_sorts_contributes_no_fields():
+    class Empty(Sorting[Book]):
+        pass
+
+    assert Empty.__sorts__ == ()
+    assert dataclasses.fields(Empty.Schema) == ()
+    # Nothing to choose from, so nothing is ordered either.
+    assert sql(Empty.statement({})) == sql(select(Book))
 
 
 # --- applying ---------------------------------------------------------------------------

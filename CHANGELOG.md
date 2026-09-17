@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A `Sorting` class that declares no sorts now contributes no schema fields, rather
+  than a sort field typed as an empty `Literal`, which Pydantic refuses to build a
+  model from. Its own `Schema` is empty, and a `Params` class it is part of renders
+  only the other parts' fields. ([#5])
+
+[#5]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/5
+
 ## [0.3.0] - 2026-09-17
 
 ### Added

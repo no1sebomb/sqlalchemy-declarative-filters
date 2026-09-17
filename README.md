@@ -546,7 +546,8 @@ How to order the results.
 ```
 
 With `__default_sort__` the sort field defaults to it; without, nothing is sorted
-unless the caller asks. The Pydantic and Marshmallow schemas validate the choices and
+unless the caller asks. A class that declares no sorts has no sort field either --
+neither on its own schema nor on a `Params` schema it is part of. The Pydantic and Marshmallow schemas validate the choices and
 coerce `asc=0` and friends to a `bool`; the dataclass backend does neither, and
 `apply` raises `UnknownSortError` or `InvalidOrderError` for what it cannot use.
 
