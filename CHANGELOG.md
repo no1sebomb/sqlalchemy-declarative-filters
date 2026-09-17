@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-17
+
 ### Fixed
 
 - A `Sorting` class that declares no sorts now contributes no schema fields, rather
@@ -121,7 +123,8 @@ All notable changes to this project are documented here. The format follows
 - Filters are inherited, so a project can define one base class and extend it.
 - Typed: `py.typed` plus stubs for the three public namespaces.
 
-[Unreleased]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/releases/tag/v0.1.0
