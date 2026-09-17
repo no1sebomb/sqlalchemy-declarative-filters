@@ -26,7 +26,7 @@ from ._meta import Filters, FiltersMeta
 from ._params import Params, ParamsMeta
 from ._sorting import PRIMARY_KEY, OrderStyle, Sorting, SortingMeta
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 #: Explicit alias, for when more than one backend's base is in the same module.
 DataclassFilters = Filters

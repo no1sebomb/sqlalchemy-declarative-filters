@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-17
+
 ### Added
 
 - `Sorting`, the counterpart of `Filters` for ordering. Each public method is a sort:
@@ -31,8 +33,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- `FiltersMeta` now derives from `SchemaMeta`, which it shares with `SortingMeta`. The
-  public surface of `FiltersMeta` is unchanged.
+- `FiltersMeta` now derives from `SchemaMeta`, which it shares with `SortingMeta` and
+  `ParamsMeta`. The public surface of `FiltersMeta` is unchanged.
+- A dataclass schema's `from_mapping` reports an unknown name as "has no field(s)
+  named ..." rather than "has no filter(s) named ...", since the same schemas now
+  back sorting and params classes.
 
 ## [0.2.0] - 2026-09-14
 
@@ -101,6 +106,7 @@ All notable changes to this project are documented here. The format follows
 - Filters are inherited, so a project can define one base class and extend it.
 - Typed: `py.typed` plus stubs for the three public namespaces.
 
-[Unreleased]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/releases/tag/v0.1.0
