@@ -283,6 +283,11 @@ Marshmallow when the values come from outside your own code.
 Any class can reach any backend -- `BookFilters.Dataclass`, `.Pydantic`,
 `.Marshmallow` -- each built lazily and cached. `Model` is an alias of `Schema`.
 
+All five are classes, and the stubs declare them as such, so they work as annotations
+-- `Annotated[BookFilters.Schema, Query()]` -- with no complaint from a type checker or
+an IDE. Their fields are built at runtime, so a checker takes any of them on an
+instance rather than pretending to know which exist.
+
 ### `@options` is backend-specific
 
 Keywords go to the active backend's own field constructor, untranslated, and each

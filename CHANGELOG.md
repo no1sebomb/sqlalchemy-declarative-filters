@@ -12,8 +12,14 @@ All notable changes to this project are documented here. The format follows
   than a sort field typed as an empty `Literal`, which Pydantic refuses to build a
   model from. Its own `Schema` is empty, and a `Params` class it is part of renders
   only the other parts' fields. ([#5])
+- `Schema`, `Model`, `Dataclass`, `Pydantic` and `Marshmallow` are declared in the
+  stubs as classes rather than as properties returning `type[Any]`, so that they work
+  as annotations: `Annotated[BookFilters.Schema, Query()]` no longer reads as an
+  invalid type annotation in PyCharm, and a field read off an instance is no longer an
+  unresolved attribute. ([#6])
 
 [#5]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/5
+[#6]: https://github.com/no1sebomb/sqlalchemy-declarative-filters/issues/6
 
 ## [0.3.0] - 2026-09-17
 

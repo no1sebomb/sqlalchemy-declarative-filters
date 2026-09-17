@@ -5,10 +5,17 @@ other line must be accepted. ``tests/test_typing.py`` runs mypy over this file a
 holds it to exactly that.
 """
 
+import dataclasses
+from typing import Annotated
+
 import sqlalchemy as sa
+from marshmallow import Schema as MarshmallowSchema
+from pydantic import BaseModel
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from sqlalchemy_declarative_filters import Filters, OrderStyle, Params, Sorting, Statement
+from sqlalchemy_declarative_filters import marshmallow as ma
+from sqlalchemy_declarative_filters import pydantic as pyd
 
 
 class Base(DeclarativeBase):
@@ -126,3 +133,58 @@ class BookParams(Params[Book]):
 params_statement: sa.Select[tuple[Book]] = BookParams.statement(values)
 params_applied: sa.Select[tuple[Book]] = BookParams.apply(sa.select(Book), values)
 BookParams.apply(other_statement, values)  # type-error
+
+
+# --- the generated schemas ----------------------------------------------------------
+
+
+# They are classes, so they work as annotations -- which is how they reach FastAPI --
+# and their runtime-built fields are readable without a checker objecting.
+def read(values: BookFilters.Schema) -> sa.Select[tuple[Book]]:
+    print(values.title)
+
+    return BookFilters.statement(values)
+
+
+read(BookFilters.Schema(title="tomb"))
+read(BookFilters.Schema.from_mapping({"title": "tomb"}))
+dataclass_fields = dataclasses.fields(BookFilters.Schema)
+
+# Every name the accessors offer is one of them, and Model and Dataclass are Schema.
+schema: BookFilters.Schema = BookFilters.Model(title="tomb")
+dataclass_schema: BookFilters.Schema = BookFilters.Dataclass(title="tomb")
+chosen_sort: BookSorting.Model = BookSorting.Schema(sort_by="title", asc=True)
+params_values: Annotated[BookParams.Schema, "a FastAPI Query()"] = BookParams.Schema(
+    title="tomb", sort_by="title"
+)
+
+# An annotation that is a real type, and not Any: this is not one of them.
+not_a_schema: BookFilters.Schema = "tomb"  # type-error
+
+
+class PydanticBookFilters(pyd.Filters[Book]):
+    """The Pydantic namespace: its schemas are BaseModel subclasses."""
+
+    def title(self, value: str) -> Statement:
+        """Books whose title contains this."""
+
+        return self.where(Book.title.ilike(f"%{value}%"))
+
+
+pydantic_model: BaseModel = PydanticBookFilters.Schema(title="tomb")
+pydantic_alias: PydanticBookFilters.Model = PydanticBookFilters.Pydantic(title="tomb")
+dumped: dict[str, object] = PydanticBookFilters.Schema(title="tomb").model_dump()
+
+
+class MarshmallowBookFilters(ma.Filters[Book]):
+    """The Marshmallow namespace: its schemas are marshmallow.Schema subclasses."""
+
+    def title(self, value: str) -> Statement:
+        """Books whose title contains this."""
+
+        return self.where(Book.title.ilike(f"%{value}%"))
+
+
+marshmallow_schema: MarshmallowSchema = MarshmallowBookFilters.Schema()
+marshmallow_alias: MarshmallowBookFilters.Model = MarshmallowBookFilters.Marshmallow()
+loaded = MarshmallowBookFilters.Schema().load({"title": "tomb"})

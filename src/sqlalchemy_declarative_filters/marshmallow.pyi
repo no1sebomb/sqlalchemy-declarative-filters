@@ -1,7 +1,7 @@
 """Public typing surface for the Marshmallow namespace."""
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any, Generic, overload
+from typing import Any, Generic, TypeAlias, overload
 
 from marshmallow import Schema as _MarshmallowSchema
 from typing_extensions import TypeVar
@@ -18,51 +18,58 @@ _FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
 _ModelT = TypeVar("_ModelT", default=Any)
 _Validator = Callable[[Any], Any]
 
-class MarshmallowFiltersMeta(FiltersMeta):
-    @property
-    def Schema(cls) -> type[_MarshmallowSchema]: ...
-    @property
-    def Model(cls) -> type[_MarshmallowSchema]: ...
-    @property
-    def Marshmallow(cls) -> type[_MarshmallowSchema]: ...
+class _MarshmallowGeneratedSchema(_MarshmallowSchema):
+    """A generated Marshmallow schema, as a type checker sees it.
+
+    The fields are built at runtime from the declarations; everything
+    :class:`marshmallow.Schema` declares -- ``load`` above all -- keeps its own type.
+    """
+
+class MarshmallowFiltersMeta(FiltersMeta): ...
 
 class MarshmallowFilters(
     _DataclassFilters[_ModelT],
     Generic[_ModelT],
     metaclass=MarshmallowFiltersMeta,
-): ...
+):
+    #: A class, so that it works as an annotation; the values it loads --
+    #: ``BookFilters.Schema().load(params)`` -- go straight to ``apply``.
+    class Schema(_MarshmallowGeneratedSchema): ...
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    Marshmallow: TypeAlias = Schema
 
 Filters = MarshmallowFilters
 
-class MarshmallowSortingMeta(SortingMeta):
-    @property
-    def Schema(cls) -> type[_MarshmallowSchema]: ...
-    @property
-    def Model(cls) -> type[_MarshmallowSchema]: ...
-    @property
-    def Marshmallow(cls) -> type[_MarshmallowSchema]: ...
+class MarshmallowSortingMeta(SortingMeta): ...
 
 class MarshmallowSorting(
     _DataclassSorting[_ModelT],
     Generic[_ModelT],
     metaclass=MarshmallowSortingMeta,
-): ...
+):
+    #: A class, so that it works as an annotation; the values it loads --
+    #: ``BookSorting.Schema().load(params)`` -- go straight to ``apply``.
+    class Schema(_MarshmallowGeneratedSchema): ...
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    Marshmallow: TypeAlias = Schema
 
 Sorting = MarshmallowSorting
 
-class MarshmallowParamsMeta(ParamsMeta):
-    @property
-    def Schema(cls) -> type[_MarshmallowSchema]: ...
-    @property
-    def Model(cls) -> type[_MarshmallowSchema]: ...
-    @property
-    def Marshmallow(cls) -> type[_MarshmallowSchema]: ...
+class MarshmallowParamsMeta(ParamsMeta): ...
 
 class MarshmallowParams(
     _DataclassParams[_ModelT],
     Generic[_ModelT],
     metaclass=MarshmallowParamsMeta,
-): ...
+):
+    #: A class, so that it works as an annotation; the values it loads --
+    #: ``BookParams.Schema().load(params)`` -- go straight to ``apply``.
+    class Schema(_MarshmallowGeneratedSchema): ...
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    Marshmallow: TypeAlias = Schema
 
 Params = MarshmallowParams
 

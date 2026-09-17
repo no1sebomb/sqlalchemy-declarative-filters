@@ -6,8 +6,9 @@ that differs per backend and reads badly inline.
 """
 
 from collections.abc import Callable, Mapping
+from dataclasses import Field
 from enum import Enum
-from typing import Any, ClassVar, Generic, overload
+from typing import Any, ClassVar, Generic, TypeAlias, overload
 
 from sqlalchemy.sql._typing import (
     _ColumnExpressionArgument,
@@ -18,7 +19,7 @@ from sqlalchemy.sql._typing import (
 from sqlalchemy.sql.dml import UpdateBase
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Exists, Select
-from typing_extensions import TypeVar
+from typing_extensions import Self, TypeVar
 
 from ._spec import FilterSpec as FilterSpec
 from ._spec import SortSpec as SortSpec
@@ -35,6 +36,30 @@ _ModelT = TypeVar("_ModelT", default=Any)
 #: it: an Exists to narrow, an UPDATE or DELETE to filter the rows of.
 _OtherStatementT = TypeVar("_OtherStatementT", bound=Exists | UpdateBase)
 
+class _GeneratedSchemaMeta(type):
+    #: Whatever the backend puts on the schema class: ``model_fields``, ``opts``, ...
+    def __getattr__(cls, name: str) -> Any: ...
+
+class _GeneratedSchema(metaclass=_GeneratedSchemaMeta):
+    """A generated schema, as a type checker sees it.
+
+    The fields come from the filter methods and are built at runtime, so no stub can
+    name them. Declared as a class rather than as a ``type[Any]`` property, so that
+    ``BookFilters.Schema`` is a valid annotation -- which is how it reaches FastAPI --
+    and its fields can be read off an instance without a checker objecting.
+    """
+
+    def __init__(self, **values: Any) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
+
+class _DataclassSchema(_GeneratedSchema):
+    """The dataclass backend's schema: a keyword-only dataclass."""
+
+    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> Self:
+        """Build an instance from raw values, mapping null-like strings to ``None``."""
+
 class FilterError(Exception): ...
 class FilterDeclarationError(FilterError, TypeError): ...
 class UnknownFilterError(FilterError, KeyError): ...
@@ -45,18 +70,8 @@ class JoinConflictWarning(UserWarning): ...
 class RedundantSkipNullWarning(UserWarning): ...
 
 class FiltersMeta(type):
-    #: The generated schema, in whichever backend ``__backend__`` names.
-    @property
-    def Schema(cls) -> type[Any]: ...
-    #: Alias of :attr:`Schema`.
-    @property
-    def Model(cls) -> type[Any]: ...
-    @property
-    def Dataclass(cls) -> type[Any]: ...
-    @property
-    def Pydantic(cls) -> type[Any]: ...
-    @property
-    def Marshmallow(cls) -> type[Any]: ...
+    # The schemas are declared on the classes themselves, as nested classes, because
+    # that is the only form a type checker takes as an annotation.
     @property
     def __filters__(cls) -> tuple[FilterSpec, ...]: ...
     #: What the class filters: its type parameter, or its own ``__model__``.
@@ -102,6 +117,16 @@ class Statement:
     def __getattr__(self, name: str) -> Any: ...
 
 class Filters(Statement, Generic[_ModelT], metaclass=FiltersMeta):
+    #: The generated schema, in whichever backend ``__backend__`` names. A class, so
+    #: that it works as an annotation: ``Annotated[BookFilters.Schema, Query()]``.
+    class Schema(_DataclassSchema): ...
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    #: The same filters in one named backend, whatever ``__backend__`` says. Only the
+    #: backend of this namespace is spelled out; the other two are, in theirs.
+    Dataclass: TypeAlias = Schema
+    Pydantic: TypeAlias = _GeneratedSchema
+    Marshmallow: TypeAlias = _GeneratedSchema
     #: Which backend ``Schema`` uses; set by the base class you inherit from.
     __backend__: str
     #: Strings a query parameter may use to mean ``null`` on a ``@skip_null`` filter.
@@ -155,18 +180,6 @@ class OrderStyle(str, Enum):
     PREFIX = "prefix"
 
 class SortingMeta(type):
-    #: The generated schema, in whichever backend ``__backend__`` names.
-    @property
-    def Schema(cls) -> type[Any]: ...
-    #: Alias of :attr:`Schema`.
-    @property
-    def Model(cls) -> type[Any]: ...
-    @property
-    def Dataclass(cls) -> type[Any]: ...
-    @property
-    def Pydantic(cls) -> type[Any]: ...
-    @property
-    def Marshmallow(cls) -> type[Any]: ...
     @property
     def __sorts__(cls) -> tuple[SortSpec, ...]: ...
     #: What the class sorts: its type parameter, or its own ``__model__``.
@@ -175,6 +188,16 @@ class SortingMeta(type):
     def build_schema(cls, backend: str | None = ...) -> type[Any]: ...
 
 class Sorting(Statement, Generic[_ModelT], metaclass=SortingMeta):
+    #: The generated schema, in whichever backend ``__backend__`` names. A class, so
+    #: that it works as an annotation: ``Annotated[BookSorting.Schema, Query()]``.
+    class Schema(_DataclassSchema): ...
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    #: The same sort field in one named backend, whatever ``__backend__`` says. Only the
+    #: backend of this namespace is spelled out; the other two are, in theirs.
+    Dataclass: TypeAlias = Schema
+    Pydantic: TypeAlias = _GeneratedSchema
+    Marshmallow: TypeAlias = _GeneratedSchema
     #: Which backend ``Schema`` uses; set by the base class you inherit from.
     __backend__: str
     #: Overrides the generated schema's class name.
@@ -218,18 +241,6 @@ class Sorting(Statement, Generic[_ModelT], metaclass=SortingMeta):
 DataclassSorting = Sorting
 
 class ParamsMeta(type):
-    #: The combined schema of every part, in whichever backend ``__backend__`` names.
-    @property
-    def Schema(cls) -> type[Any]: ...
-    #: Alias of :attr:`Schema`.
-    @property
-    def Model(cls) -> type[Any]: ...
-    @property
-    def Dataclass(cls) -> type[Any]: ...
-    @property
-    def Pydantic(cls) -> type[Any]: ...
-    @property
-    def Marshmallow(cls) -> type[Any]: ...
     #: The filters and sorting classes combined, by attribute name.
     @property
     def __parts__(cls) -> dict[str, FiltersMeta | SortingMeta]: ...
@@ -239,6 +250,16 @@ class ParamsMeta(type):
     def build_schema(cls, backend: str | None = ...) -> type[Any]: ...
 
 class Params(Generic[_ModelT], metaclass=ParamsMeta):
+    #: The generated schema, in whichever backend ``__backend__`` names. A class, so
+    #: that it works as an annotation: ``Annotated[BookParams.Schema, Query()]``.
+    class Schema(_DataclassSchema): ...
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    #: The same parts' fields in one named backend, whatever ``__backend__`` says. Only the
+    #: backend of this namespace is spelled out; the other two are, in theirs.
+    Dataclass: TypeAlias = Schema
+    Pydantic: TypeAlias = _GeneratedSchema
+    Marshmallow: TypeAlias = _GeneratedSchema
     #: Which backend ``Schema`` uses; set by the base class you inherit from.
     __backend__: str
     #: Overrides the generated schema's class name.

@@ -1,7 +1,7 @@
 """Public typing surface for the Pydantic namespace."""
 
 from collections.abc import Callable
-from typing import Any, Generic, overload
+from typing import Any, Generic, TypeAlias, overload
 
 from pydantic import BaseModel
 from pydantic.json_schema import JsonSchemaValue
@@ -18,51 +18,69 @@ from . import Statement as Statement
 _FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
 _ModelT = TypeVar("_ModelT", default=Any)
 
-class PydanticFiltersMeta(FiltersMeta):
-    @property
-    def Schema(cls) -> type[BaseModel]: ...
-    @property
-    def Model(cls) -> type[BaseModel]: ...
-    @property
-    def Pydantic(cls) -> type[BaseModel]: ...
+class _PydanticSchema(BaseModel):
+    """A generated Pydantic model, as a type checker sees it.
+
+    The fields are built at runtime from the declarations, so ``__getattr__`` stands
+    in for them; everything :class:`~pydantic.BaseModel` declares keeps its own type.
+    Every ``Schema`` below repeats ``__init__`` because a checker builds one from the
+    fields a Pydantic model declares, and a stub can declare none of them.
+    """
+
+    def __init__(self, **values: Any) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
+
+class PydanticFiltersMeta(FiltersMeta): ...
 
 class PydanticFilters(
     _DataclassFilters[_ModelT],
     Generic[_ModelT],
     metaclass=PydanticFiltersMeta,
-): ...
+):
+    #: A class, so that it works as an annotation, which is how FastAPI reads it:
+    #: ``Annotated[BookFilters.Schema, Query()]``.
+    class Schema(_PydanticSchema):
+        def __init__(self, **values: Any) -> None: ...
+
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    Pydantic: TypeAlias = Schema
 
 Filters = PydanticFilters
 
-class PydanticSortingMeta(SortingMeta):
-    @property
-    def Schema(cls) -> type[BaseModel]: ...
-    @property
-    def Model(cls) -> type[BaseModel]: ...
-    @property
-    def Pydantic(cls) -> type[BaseModel]: ...
+class PydanticSortingMeta(SortingMeta): ...
 
 class PydanticSorting(
     _DataclassSorting[_ModelT],
     Generic[_ModelT],
     metaclass=PydanticSortingMeta,
-): ...
+):
+    #: A class, so that it works as an annotation, which is how FastAPI reads it:
+    #: ``Annotated[BookSorting.Schema, Query()]``.
+    class Schema(_PydanticSchema):
+        def __init__(self, **values: Any) -> None: ...
+
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    Pydantic: TypeAlias = Schema
 
 Sorting = PydanticSorting
 
-class PydanticParamsMeta(ParamsMeta):
-    @property
-    def Schema(cls) -> type[BaseModel]: ...
-    @property
-    def Model(cls) -> type[BaseModel]: ...
-    @property
-    def Pydantic(cls) -> type[BaseModel]: ...
+class PydanticParamsMeta(ParamsMeta): ...
 
 class PydanticParams(
     _DataclassParams[_ModelT],
     Generic[_ModelT],
     metaclass=PydanticParamsMeta,
-): ...
+):
+    #: A class, so that it works as an annotation, which is how FastAPI reads it:
+    #: ``Annotated[BookParams.Schema, Query()]``.
+    class Schema(_PydanticSchema):
+        def __init__(self, **values: Any) -> None: ...
+
+    #: Alias of :attr:`Schema`, for the backends that call these things models.
+    Model: TypeAlias = Schema
+    Pydantic: TypeAlias = Schema
 
 Params = PydanticParams
 
