@@ -14,12 +14,12 @@ import warnings
 from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 from ._exceptions import RedundantSkipNullWarning
-from ._spec import DEPRECATION_ATTR, OPTIONS_ATTR, SKIP_NULL_ATTR, Deprecation
+from ._spec import DEPRECATION_ATTR, DESCENDING_ATTR, OPTIONS_ATTR, SKIP_NULL_ATTR, Deprecation
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-__all__ = ("deprecated", "options", "skip_null")
+__all__ = ("deprecated", "descending", "options", "skip_null")
 
 _FuncT = TypeVar("_FuncT", bound="Callable[..., Any]")
 
@@ -56,6 +56,23 @@ def skip_null(func: _FuncT) -> _FuncT:
 
     _warn_if_redundant(func)
     setattr(func, SKIP_NULL_ATTR, True)
+
+    return func
+
+
+def descending(func: _FuncT) -> _FuncT:
+    """Make a sort run descending when the caller does not say which way.
+
+    A sort method always writes its ascending order; this only changes which direction
+    applies by default. The caller can still ask for either one explicitly::
+
+        @descending
+        def rating(self):
+            \"""By average review score.\"""
+            return self.order_by(average_rating)
+    """
+
+    setattr(func, DESCENDING_ATTR, True)
 
     return func
 
@@ -102,7 +119,7 @@ def deprecated(
 
 
 def deprecated(reason: Any = None, /, *, alternative: str | None = None) -> Any:
-    """Mark a filter as on its way out.
+    """Mark a filter, or a sort, as on its way out.
 
     The filter keeps working. What changes is the generated schema: its field is
     flagged deprecated -- which is what puts ``"deprecated": true`` in the OpenAPI

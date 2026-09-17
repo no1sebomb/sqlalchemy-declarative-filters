@@ -6,10 +6,12 @@ that differs per backend and reads badly inline.
 """
 
 from collections.abc import Callable, Mapping
+from enum import Enum
 from typing import Any, ClassVar, Generic, overload
 
 from sqlalchemy.sql._typing import (
     _ColumnExpressionArgument,
+    _ColumnExpressionOrStrLabelArgument,
     _JoinTargetArgument,
     _OnClauseArgument,
 )
@@ -19,6 +21,7 @@ from sqlalchemy.sql.selectable import Exists, Select
 from typing_extensions import TypeVar
 
 from ._spec import FilterSpec as FilterSpec
+from ._spec import SortSpec as SortSpec
 
 __version__: str
 
@@ -35,6 +38,8 @@ _OtherStatementT = TypeVar("_OtherStatementT", bound=Exists | UpdateBase)
 class FilterError(Exception): ...
 class FilterDeclarationError(FilterError, TypeError): ...
 class UnknownFilterError(FilterError, KeyError): ...
+class UnknownSortError(FilterError, KeyError): ...
+class InvalidOrderError(FilterError, ValueError): ...
 class BackendNotAvailableError(FilterError, ImportError): ...
 class JoinConflictWarning(UserWarning): ...
 class RedundantSkipNullWarning(UserWarning): ...
@@ -138,6 +143,77 @@ class Filters(Statement, Generic[_ModelT], metaclass=FiltersMeta):
 
 DataclassFilters = Filters
 
+class OrderStyle(str, Enum):
+    """How the caller spells the direction of a sort."""
+
+    CODE = "code"
+    ASC_FLAG = "asc_flag"
+    DESC_FLAG = "desc_flag"
+    PREFIX = "prefix"
+
+class SortingMeta(type):
+    #: The generated schema, in whichever backend ``__backend__`` names.
+    @property
+    def Schema(cls) -> type[Any]: ...
+    #: Alias of :attr:`Schema`.
+    @property
+    def Model(cls) -> type[Any]: ...
+    @property
+    def Dataclass(cls) -> type[Any]: ...
+    @property
+    def Pydantic(cls) -> type[Any]: ...
+    @property
+    def Marshmallow(cls) -> type[Any]: ...
+    @property
+    def __sorts__(cls) -> tuple[SortSpec, ...]: ...
+    #: What the class sorts: its type parameter, or its own ``__model__``.
+    @property
+    def __model__(cls) -> Any: ...
+    def build_schema(cls, backend: str | None = ...) -> type[Any]: ...
+
+class Sorting(Statement, Generic[_ModelT], metaclass=SortingMeta):
+    #: Which backend ``Schema`` uses; set by the base class you inherit from.
+    __backend__: str
+    #: Overrides the generated schema's class name.
+    __schema_name__: str
+    #: What the class sorts, when the type parameter is not how you want to say it.
+    __model__: ClassVar[Any]
+    #: The name of the field that picks the sort.
+    __sort_field__: ClassVar[str]
+    #: The name of the field that picks the direction; ``None`` names it after the style.
+    __order_field__: ClassVar[str | None]
+    #: How the direction is spelled.
+    __order_style__: ClassVar[OrderStyle]
+    #: The sort applied when the caller chooses none.
+    __default_sort__: ClassVar[str | None]
+    #: Keys appended after every sort: the primary key by default, or ``None``.
+    __tiebreaker__: ClassVar[Any]
+
+    # Spelled out here rather than on Statement, where it would stop filters from
+    # being named order_by. A sort cannot be, so nothing is lost.
+    def order_by(
+        self,
+        *clauses: _ColumnExpressionOrStrLabelArgument[Any] | None,
+    ) -> Statement:
+        """``Select.order_by``, with each key reversed when the caller asked for desc."""
+
+    # Really a method of the metaclass; declared here so that the class's own type
+    # parameter is in scope, which is what makes the statement checkable against it.
+    @classmethod
+    def apply(
+        cls,
+        statement: Select[tuple[_ModelT]],
+        values: Mapping[str, Any] | Any | None = ...,
+    ) -> Select[tuple[_ModelT]]: ...
+    @classmethod
+    def statement(
+        cls,
+        values: Mapping[str, Any] | Any | None = ...,
+    ) -> Select[tuple[_ModelT]]:
+        """``apply(select(model), values)``, for a plain select of the model."""
+
+DataclassSorting = Sorting
+
 def options(
     *,
     default_factory: Callable[[], Any] = ...,
@@ -162,3 +238,5 @@ def deprecated(
     """Flag the filter as deprecated in the generated schema."""
 
 def skip_null(func: _FuncT) -> _FuncT: ...
+def descending(func: _FuncT) -> _FuncT:
+    """Make a sort run descending when the caller does not say which way."""

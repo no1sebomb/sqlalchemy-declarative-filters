@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Sorting`, the counterpart of `Filters` for ordering. Each public method is a sort:
+  it takes only `self`, the same join-deduplicating `Statement` a filter gets, and
+  writes its ascending order with `self.order_by(...)`. When the caller asks for
+  descending, every key is reversed on the way through, `NULLS FIRST/LAST` kept.
+  `@descending` makes a sort run descending by default. The generated schema offers the
+  sorts as a `Literal`, described by their docstrings.
+- How the choice arrives is configurable per class: `__sort_field__` and
+  `__order_field__` name the fields, and `__order_style__` spells the direction as a
+  code (`order=desc`), a flag (`asc=0` or `desc=1`) or a prefix (`sort=-title`): one of
+  the new `OrderStyle` members, `CODE`, `ASC_FLAG`, `DESC_FLAG` and `PREFIX`.
+  `__default_sort__` applies when the caller picks nothing.
+- A sort is followed by the statement's existing ordering and then by `__tiebreaker__`,
+  the model's primary key by default, so that paginated results never repeat or skip
+  rows.
+- `UnknownSortError` and `InvalidOrderError`.
+
+### Changed
+
+- `FiltersMeta` now derives from `SchemaMeta`, which it shares with `SortingMeta`. The
+  public surface of `FiltersMeta` is unchanged.
+
 ## [0.2.0] - 2026-09-14
 
 ### Added

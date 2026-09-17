@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
 Declare a filter set once, as a class. Get a validated schema and a SQLAlchemy
-statement builder out of it.
+statement builder out of it. Sorting works the same way.
 
 > **Status: pre-release.** The API is not stable yet.
 
@@ -414,6 +414,133 @@ def cheapest(self, value: int):
 Joins stay deduplicated afterwards: whatever a filter returns is re-wrapped with the
 same join record before the next filter runs.
 
+## Sorting
+
+A `Sorting` class is the other half of a list endpoint. Each public method is one way
+the caller may order the results. A sort takes no value -- the caller only picks one,
+and a direction -- so its only parameter is `self`, the same `Statement` a filter gets:
+
+```python
+from sqlalchemy_declarative_filters import Sorting, deprecated, descending
+
+AVERAGE_RATING = select(func.avg(Review.rating)).where(Review.book_id == Book.id).scalar_subquery()
+
+
+class BookSorting(Sorting[Book]):
+    """Orderings for the book catalogue."""
+
+    __default_sort__ = "rating"
+
+    def title(self):
+        """By title."""
+        return self.order_by(Book.title)
+
+    def author(self):
+        """By author's name, then title."""
+        return self.join(Book.author).order_by(Author.name, Book.title)
+
+    @descending
+    def rating(self):
+        """By average review score."""
+        return self.order_by(AVERAGE_RATING.nulls_last())
+```
+
+```python
+statement = BookFilters.apply(select(Book), filters)
+statement = BookSorting.apply(statement, {"sort": "author", "order": "desc"})
+# ... JOIN author ON ...        <- once, even if a filter joined it too
+# ORDER BY author.name DESC, book.title DESC, book.id DESC
+```
+
+### Direction
+
+A sort always writes its **ascending** order. When the caller asks for descending,
+`self.order_by(...)` reverses every key it is given: `asc` becomes `desc` and an
+explicit `.desc()` becomes `asc`, so a sort that is "name, then newest first" reads
+"name descending, then oldest first" the other way round. `NULLS FIRST`/`NULLS LAST`
+stays where you put it -- the rows with no value are still the least interesting
+ones, whichever way the rest are read.
+
+`@descending` does not change what the method writes. It makes the sort run descending
+when the caller does not say which way, which is what people expect of a rating or a
+date. The caller can still ask for either direction.
+
+Only keys that pass through `self.order_by` are reversed. A subquery built from `self`
+that orders its own rows would be reversed too, so build those from `select(...)`.
+
+### How the choice arrives
+
+Three class attributes decide what the query string looks like:
+
+| | `__order_style__` | the order field | query string |
+| --- | --- | --- | --- |
+| a code | `OrderStyle.CODE` (default) | `order: "asc" \| "desc"` | `?sort=title&order=desc` |
+| a flag | `OrderStyle.ASC_FLAG` | `asc: bool` | `?sort=title&asc=0` |
+| a flag, the other way | `OrderStyle.DESC_FLAG` | `desc: bool` | `?sort=title&desc=1` |
+| a `-` prefix | `OrderStyle.PREFIX` | none | `?sort=-title` |
+
+`__sort_field__` renames the sort field (`"sort"` by default) and `__order_field__`
+the order field, which is otherwise named after the style. So:
+
+```python
+from sqlalchemy_declarative_filters import OrderStyle, Sorting
+
+
+class BookSorting(Sorting[Book]):
+    __sort_field__ = "sort_on"  # ?sort_on=title&order=desc
+
+
+class BookSorting(Sorting[Book]):
+    __sort_field__ = "sort_by"
+    __order_style__ = OrderStyle.ASC_FLAG  # ?sort_by=title&asc=0
+
+
+class BookSorting(Sorting[Book]):
+    __order_style__ = OrderStyle.PREFIX  # ?sort=-title
+```
+
+An omitted order field means each sort's own direction. The prefix style has no way to
+say "unspecified", so there `title` is ascending and `-title` descending, and
+`@descending` only affects `__default_sort__`, which the schema then spells `-rating`.
+
+A base class for the whole project is the natural place to set these once.
+
+### The schema
+
+`BookSorting.Schema` has the sort field, typed as a `Literal` of the sort names -- an
+enum in OpenAPI -- and the order field. Each sort's docstring (its first paragraph) goes
+into the sort field's description, one line per choice, with `@deprecated` notes
+appended: OpenAPI cannot flag a single enum value as deprecated.
+
+```text
+How to order the results.
+
+- `title`: By title.
+- `author`: By author's name, then title.
+- `rating`: By average review score. Descending unless stated otherwise.
+```
+
+With `__default_sort__` the sort field defaults to it; without, nothing is sorted
+unless the caller asks. The Pydantic and Marshmallow schemas validate the choices and
+coerce `asc=0` and friends to a `bool`; the dataclass backend does neither, and
+`apply` raises `UnknownSortError` or `InvalidOrderError` for what it cannot use.
+
+### Tie-breaking
+
+Rows that compare equal come back in whatever order the database likes, which with
+offset pagination means rows repeated on one page and missing from the next. So the
+chosen sort is followed by any ordering the incoming statement already had, and then
+by `__tiebreaker__`: the model's primary key, in the sort's direction, unless the
+sort already ordered by it.
+
+```python
+__tiebreaker__ = (Book.title, Book.id)  # your own keys
+__tiebreaker__ = None  # none at all
+```
+
+The primary key needs the model, from `Sorting[Book]` or `__model__`; without one
+there is no default tiebreaker.
+
 ## Reference
 
 ```python
@@ -427,6 +554,11 @@ BookFilters.statement(values=None)  # select(model), with the filters applied
 BookFilters.condition(values=None)  # the filters as one WHERE clause
 BookFilters.__filters__  # the collected FilterSpec objects
 BookFilters.__model__  # what it filters, from Filters[Book] or from __model__
+
+BookSorting.Schema  # ... and the same set for a sorting class
+BookSorting.apply(statement, values=None)  # values: a mapping, a schema instance, or None
+BookSorting.statement(values=None)  # select(model), sorted
+BookSorting.__sorts__  # the collected SortSpec objects
 ```
 
 Class attributes you can set on a filters class:
@@ -436,6 +568,16 @@ __backend__  # "dataclass" | "pydantic" | "marshmallow"; normally set by the bas
 __null_strings__  # strings that mean null on a @skip_null filter
 __schema_name__  # overrides the generated schema's class name
 __model__  # what the class filters, when Filters[Book] is not how you want to say it
+```
+
+And on a sorting class, as well as `__backend__`, `__schema_name__` and `__model__`:
+
+```python
+__sort_field__  # the field that picks the sort; "sort"
+__order_field__  # the field that picks the direction; named after the style when None
+__order_style__  # OrderStyle.CODE | ASC_FLAG | DESC_FLAG | PREFIX
+__default_sort__  # the sort applied when none is chosen; None
+__tiebreaker__  # keys after every sort; the primary key, or a column, a tuple, None
 ```
 
 `Statement` is what `self` is and what a filter returns, so under a strict type checker
@@ -453,11 +595,14 @@ The decorators, all importable from whichever namespace `Filters` came from:
 @options(**field_keywords)  # keywords for the backend's own field constructor
 @skip_null  # let an explicit null switch a declared default off
 @deprecated  # flag the field deprecated; also @deprecated(reason) / @deprecated(alternative=...)
+@descending  # on a sort: run descending unless the caller says otherwise
 ```
 
 Errors all derive from `FilterError`: `FilterDeclarationError` for a filter that cannot
 be turned into a field, `UnknownFilterError` for a value with no matching filter,
 `FilterConditionError` for filters `condition()` cannot express as a clause,
+`UnknownSortError` for a sort or field a sorting class does not have,
+`InvalidOrderError` for a direction that does not fit the order style,
 `BackendNotAvailableError` when an extra is missing. Warnings: `JoinConflictWarning`
 for two filters joining the same target differently, `RedundantSkipNullWarning` for
 `@skip_null` on a filter with no default.

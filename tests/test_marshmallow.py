@@ -11,7 +11,11 @@ from sqlalchemy import select
 from sqlalchemy_declarative_filters.marshmallow import (
     Filters,
     MarshmallowFilters,
+    MarshmallowSorting,
+    OrderStyle,
+    Sorting,
     deprecated,
+    descending,
     options,
     skip_null,
 )
@@ -255,3 +259,55 @@ def test_a_multi_member_union_falls_back_to_a_raw_field():
     assert type(field).__name__ == "Raw"
     # Optional is stripped, the remaining members are kept.
     assert Loose.Schema().load({"isbn": 9780})["isbn"] == 9780
+
+
+# --- sorting ----------------------------------------------------------------------------
+
+
+class BookSorting(Sorting[Book]):
+    """Orderings for the book catalogue."""
+
+    def title(self):
+        """By title."""
+
+        return self.order_by(Book.title)
+
+    @descending
+    def newest(self):
+        """By release date."""
+
+        return self.order_by(Book.released_on)
+
+
+def test_sorting_is_the_marshmallow_base():
+    assert Sorting is MarshmallowSorting
+    assert issubclass(BookSorting.Schema, Schema)
+    assert list(BookSorting.Schema().fields) == ["sort", "order"]
+
+
+def test_the_sort_and_order_are_validated_on_load():
+    with pytest.raises(ValidationError, match="Must be one of"):
+        BookSorting.Schema().load({"sort": "isbn"})
+
+    with pytest.raises(ValidationError, match="Must be one of"):
+        BookSorting.Schema().load({"sort": "title", "order": "up"})
+
+
+def test_apply_takes_the_loaded_sorting_dict():
+    values = BookSorting.Schema().load({"sort": "newest"})
+
+    assert sql(BookSorting.apply(select(Book), values)).endswith(
+        "ORDER BY book.released_on DESC, book.id DESC"
+    )
+
+
+def test_a_desc_flag_is_loaded_from_the_query_string():
+    class Flagged(BookSorting):
+        __order_style__ = OrderStyle.DESC_FLAG
+
+    values = Flagged.Schema().load({"sort": "title", "desc": "1"})
+
+    assert values == {"sort": "title", "desc": True}
+    assert sql(Flagged.apply(select(Book), values)).endswith(
+        "ORDER BY book.title DESC, book.id DESC"
+    )

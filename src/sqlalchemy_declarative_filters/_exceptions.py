@@ -7,9 +7,11 @@ __all__ = (
     "FilterConditionError",
     "FilterDeclarationError",
     "FilterError",
+    "InvalidOrderError",
     "JoinConflictWarning",
     "RedundantSkipNullWarning",
     "UnknownFilterError",
+    "UnknownSortError",
 )
 
 
@@ -39,6 +41,26 @@ class UnknownFilterError(FilterError, KeyError):
     def __str__(self) -> str:
         # KeyError.__str__ wraps the message in quotes; undo that.
         return str(self.args[0]) if self.args else ""
+
+
+class UnknownSortError(FilterError, KeyError):
+    """A sort was requested by a name the sorting class does not declare.
+
+    Also raised for a value supplied under a name that is neither the sort field nor
+    the order field.
+    """
+
+    def __str__(self) -> str:
+        # KeyError.__str__ wraps the message in quotes; undo that.
+        return str(self.args[0]) if self.args else ""
+
+
+class InvalidOrderError(FilterError, ValueError):
+    """The direction supplied does not fit the sorting class's ``__order_style__``.
+
+    ``"asc"`` or ``"desc"`` for ``OrderStyle.CODE``, a ``bool`` for the flag styles.
+    The Pydantic and Marshmallow schemas reject such values before they get this far.
+    """
 
 
 class BackendNotAvailableError(FilterError, ImportError):

@@ -9,8 +9,12 @@ from sqlalchemy import select
 
 from sqlalchemy_declarative_filters.pydantic import (
     Filters,
+    OrderStyle,
     PydanticFilters,
+    PydanticSorting,
+    Sorting,
     deprecated,
+    descending,
     options,
     skip_null,
 )
@@ -246,3 +250,74 @@ def test_backend_specific_options_fail_loudly_on_another_backend():
 
     with pytest.raises(FilterDeclarationError, match="same namespace"):
         _ = BookFilters.Dataclass
+
+
+# --- sorting ----------------------------------------------------------------------------
+
+
+class BookSorting(Sorting[Book]):
+    """Orderings for the book catalogue."""
+
+    __sort_field__ = "sort_by"
+    __order_style__ = OrderStyle.ASC_FLAG
+    __default_sort__ = "title"
+
+    def title(self):
+        """By title."""
+
+        return self.order_by(Book.title)
+
+    @descending
+    def newest(self):
+        """By release date."""
+
+        return self.order_by(Book.released_on)
+
+
+def test_sorting_is_the_pydantic_base():
+    assert Sorting is PydanticSorting
+    assert issubclass(BookSorting.Schema, BaseModel)
+    assert list(BookSorting.Schema.model_fields) == ["sort_by", "asc"]
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("0", False), ("false", False), ("1", True)])
+def test_a_flag_is_coerced_from_the_query_string(raw, expected):
+    assert BookSorting.Schema(sort_by="newest", asc=raw).asc is expected
+
+
+def test_an_unknown_sort_is_rejected_by_the_model():
+    with pytest.raises(ValidationError, match="sort_by"):
+        BookSorting.Schema(sort_by="isbn")
+
+
+def test_apply_takes_the_sorting_model():
+    values = BookSorting.Schema(sort_by="newest", asc="0")
+
+    assert sql(BookSorting.apply(select(Book), values)).endswith(
+        "ORDER BY book.released_on DESC, book.id DESC"
+    )
+    assert sql(BookSorting.apply(select(Book), BookSorting.Schema())).endswith(
+        "ORDER BY book.title, book.id"
+    )
+
+
+def test_the_json_schema_offers_the_sorts_as_an_enum():
+    properties = BookSorting.Schema.model_json_schema()["properties"]
+
+    assert properties["sort_by"]["enum"] == ["title", "newest"]
+    assert properties["sort_by"]["default"] == "title"
+    assert "`newest`: By release date." in properties["sort_by"]["description"]
+    assert properties["asc"]["anyOf"] == [{"type": "boolean"}, {"type": "null"}]
+
+
+def test_a_prefix_sort_field_offers_both_directions():
+    class Prefixed(BookSorting):
+        __sort_field__ = "sort"
+        __order_style__ = OrderStyle.PREFIX
+        __default_sort__ = "newest"
+
+    properties = Prefixed.Schema.model_json_schema()["properties"]
+
+    assert list(properties) == ["sort"]
+    assert properties["sort"]["enum"] == ["title", "-title", "newest", "-newest"]
+    assert properties["sort"]["default"] == "-newest"

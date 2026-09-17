@@ -8,7 +8,9 @@ from pydantic.json_schema import JsonSchemaValue
 from typing_extensions import TypeVar
 
 from . import Filters as _DataclassFilters
-from . import FiltersMeta
+from . import FiltersMeta, SortingMeta
+from . import OrderStyle as OrderStyle
+from . import Sorting as _DataclassSorting
 from . import Statement as Statement
 
 _FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
@@ -29,6 +31,22 @@ class PydanticFilters(
 ): ...
 
 Filters = PydanticFilters
+
+class PydanticSortingMeta(SortingMeta):
+    @property
+    def Schema(cls) -> type[BaseModel]: ...
+    @property
+    def Model(cls) -> type[BaseModel]: ...
+    @property
+    def Pydantic(cls) -> type[BaseModel]: ...
+
+class PydanticSorting(
+    _DataclassSorting[_ModelT],
+    Generic[_ModelT],
+    metaclass=PydanticSortingMeta,
+): ...
+
+Sorting = PydanticSorting
 
 def options(
     *,
@@ -75,3 +93,5 @@ def deprecated(
     """Flag the filter as deprecated in the generated schema."""
 
 def skip_null(func: _FuncT) -> _FuncT: ...
+def descending(func: _FuncT) -> _FuncT:
+    """Make a sort run descending when the caller does not say which way."""

@@ -8,7 +8,7 @@ holds it to exactly that.
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from sqlalchemy_declarative_filters import Filters, Statement
+from sqlalchemy_declarative_filters import Filters, OrderStyle, Sorting, Statement
 
 
 class Base(DeclarativeBase):
@@ -70,3 +70,47 @@ narrowed: sa.Exists = BookFilters.apply(sa.exists(sa.select(Book)), values)
 
 # The return type follows the statement, not the other way round.
 wrong_return: sa.Select[tuple[Author]] = BookFilters.statement(values)  # type-error
+
+
+class BookSorting(Sorting[Book]):
+    """Sorting that says what it sorts."""
+
+    __sort_field__ = "sort_by"
+    __order_style__ = OrderStyle.ASC_FLAG
+
+    def title(self) -> Statement:
+        """By title."""
+
+        return self.order_by(Book.title)
+
+
+class LooseSorting(Sorting):
+    """Sorting that does not."""
+
+    __sort_field__ = 1  # type-error
+
+    def title(self) -> Statement:
+        """By title."""
+
+        return self.order_by(Book.title)
+
+
+sort_values = {"sort_by": "title", "asc": False}
+
+sorted_statement: sa.Select[tuple[Book]] = BookSorting.apply(sa.select(Book), sort_values)
+sorted_built: sa.Select[tuple[Book]] = BookSorting.statement(sort_values)
+BookSorting.apply(other_statement, sort_values)  # type-error
+loose_sorted: sa.Select[tuple[Author]] = LooseSorting.apply(other_statement, sort_values)
+
+# Filtering and sorting compose: each hands back the statement type it was given.
+page: sa.Select[tuple[Book]] = BookSorting.apply(BookFilters.statement(values), sort_values)
+
+
+# A subclass may pick another style than its base did.
+class PrefixSorting(BookSorting):
+    __order_style__ = OrderStyle.PREFIX
+
+
+# The style is an OrderStyle, so a misspelling cannot get past the checker.
+class StringlySorting(BookSorting):
+    __order_style__ = "prefix"  # type-error

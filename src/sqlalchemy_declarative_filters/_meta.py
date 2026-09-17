@@ -1,23 +1,26 @@
-"""The metaclass and base class that turn a class body of methods into filters."""
+"""The metaclasses that turn a class body of methods into filters -- or sorts.
+
+:class:`SchemaMeta` holds what the two have in common: the model, and the lazily
+built, per-class schemas. :class:`FiltersMeta` adds filtering on top of it; the
+sorting counterpart lives in :mod:`._sorting`.
+"""
 
 from __future__ import annotations
 
 import dataclasses
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, get_args, get_origin
 
 from sqlalchemy import select, true
 
 from ._backends import SchemaRequest, get_backend
 from ._exceptions import FilterConditionError, FilterDeclarationError, UnknownFilterError
 from ._joins import JoinTracker, Statement, existing_joins, unwrap
-from ._spec import collect_specs
+from ._spec import FilterSpec, collect_specs
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
-    from ._spec import FilterSpec
-
-__all__ = ("Filters", "FiltersMeta", "ModelT")
+__all__ = ("Filters", "FiltersMeta", "ModelT", "SchemaMeta", "to_mapping")
 
 #: Names the statement offers a filter body, so they are never filter names.
 _RESERVED: frozenset[str] = frozenset({"where", "having", "join", "outerjoin", "unwrap"})
@@ -51,17 +54,18 @@ class _SchemaAccessor:
         return cls.build_schema(self._backend_name)
 
 
-class FiltersMeta(type):
-    """Metaclass giving filters classes their schemas and their ``apply``."""
+class SchemaMeta(type):
+    """What filters and sorting classes share: a model, and schemas built from them."""
 
-    # Set on every filters class by __new__, so each gets its own.
+    # Set on every class by __new__, so each gets its own.
     __schema_cache__: dict[str, type[Any]]
-    __filter_specs__: tuple[FilterSpec, ...] | None
 
-    # Declared in the Filters body, but read through the metaclass.
+    # Declared in the base class body, but read through the metaclass.
     __backend__: str
-    __null_strings__: frozenset[str]
     __schema_name__: str
+
+    #: The base class a user inherits from, for error messages.
+    _base_name = "Filters"
 
     #: The generated schema, in whichever backend ``__backend__`` names.
     Schema = _SchemaAccessor()
@@ -79,22 +83,12 @@ class FiltersMeta(type):
         bases: tuple[type, ...],
         namespace: dict[str, Any],
         **kwargs: Any,
-    ) -> FiltersMeta:
+    ) -> SchemaMeta:
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
         # Per-class, so subclasses never see a parent's cached schema.
         cls.__schema_cache__ = {}
-        cls.__filter_specs__ = None
 
         return cls
-
-    @property
-    def __filters__(cls) -> tuple[FilterSpec, ...]:
-        """The filters declared on this class and inherited from its bases."""
-
-        if cls.__dict__.get("__filter_specs__") is None:
-            cls.__filter_specs__ = collect_specs(cls, _RESERVED)
-
-        return cls.__dict__["__filter_specs__"]  # type: ignore[no-any-return]
 
     @property
     def __model__(cls) -> Any:
@@ -141,6 +135,56 @@ class FiltersMeta(type):
 
         return schema  # type: ignore[no-any-return]
 
+    def _model(cls, method: str) -> Any:
+        """The model :meth:`statement` and :meth:`condition` are built from."""
+
+        if (model := cls.__model__) is None:
+            raise FilterDeclarationError(
+                f"{cls.__name__}.{method}() needs to know what to select from, and "
+                f"{cls.__name__} does not say. Name it in the class declaration, as "
+                f"`class {cls.__name__}({type(cls)._base_name}[Book])`, or set "
+                f"`__model__ = Book` in "
+                f"the body. {cls.__name__}.apply(statement, values) needs neither."
+            )
+
+        return model
+
+    def _schema_request(cls) -> SchemaRequest:
+        """Package this class up for a backend to render."""
+
+        raise NotImplementedError
+
+
+class FiltersMeta(SchemaMeta):
+    """Metaclass giving filters classes their schemas and their ``apply``."""
+
+    # Set on every filters class by __new__, so each gets its own.
+    __filter_specs__: tuple[FilterSpec, ...] | None
+
+    # Declared in the Filters body, but read through the metaclass.
+    __null_strings__: frozenset[str]
+
+    def __new__(
+        mcs,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        **kwargs: Any,
+    ) -> FiltersMeta:
+        cls = cast("FiltersMeta", super().__new__(mcs, name, bases, namespace, **kwargs))
+        cls.__filter_specs__ = None
+
+        return cls
+
+    @property
+    def __filters__(cls) -> tuple[FilterSpec, ...]:
+        """The filters declared on this class and inherited from its bases."""
+
+        if cls.__dict__.get("__filter_specs__") is None:
+            cls.__filter_specs__ = collect_specs(cls, _RESERVED, FilterSpec.from_function)
+
+        return cls.__dict__["__filter_specs__"]  # type: ignore[no-any-return]
+
     def apply(cls, statement: Any, values: Any = None) -> Any:
         """Apply the filters in ``values`` to ``statement`` and return the result.
 
@@ -153,7 +197,7 @@ class FiltersMeta(type):
         once however many filters ask for it, and never if the caller joined it first.
         """
 
-        data = _to_mapping(cls, values)
+        data = to_mapping(cls, values)
         specs = cls.__filters__
 
         if unknown := set(data) - {spec.name for spec in specs}:
@@ -212,19 +256,6 @@ class FiltersMeta(type):
 
         return statement.whereclause if statement.whereclause is not None else true()
 
-    def _model(cls, method: str) -> Any:
-        """The model :meth:`statement` and :meth:`condition` are built from."""
-
-        if (model := cls.__model__) is None:
-            raise FilterDeclarationError(
-                f"{cls.__name__}.{method}() needs to know what to select from, and "
-                f"{cls.__name__} does not say. Name it in the class declaration, as "
-                f"`class {cls.__name__}(Filters[Book])`, or set `__model__ = Book` in "
-                f"the body. {cls.__name__}.apply(statement, values) needs neither."
-            )
-
-        return model
-
     def _schema_request(cls) -> SchemaRequest:
         """Package this class up for a backend to render."""
 
@@ -249,7 +280,7 @@ def _resolve_model(cls: type) -> Any:
             return explicit
 
         for base in klass.__dict__.get("__orig_bases__", ()):
-            if not isinstance(get_origin(base), FiltersMeta):
+            if not isinstance(get_origin(base), SchemaMeta):
                 # Some other generic base -- Generic[T] itself, or a mixin.
                 continue
 
@@ -307,7 +338,7 @@ def _active(
             yield spec, value
 
 
-def _to_mapping(cls: type, values: Any) -> Mapping[str, Any]:
+def to_mapping(cls: type, values: Any) -> Mapping[str, Any]:
     """Normalize whatever ``apply`` was handed into a plain mapping."""
 
     if values is None:
