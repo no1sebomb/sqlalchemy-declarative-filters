@@ -7,9 +7,11 @@ from pydantic import BaseModel
 from pydantic.json_schema import JsonSchemaValue
 from typing_extensions import TypeVar
 
+from . import PRIMARY_KEY as PRIMARY_KEY
 from . import Filters as _DataclassFilters
-from . import FiltersMeta, SortingMeta
+from . import FiltersMeta, ParamsMeta, SortingMeta
 from . import OrderStyle as OrderStyle
+from . import Params as _DataclassParams
 from . import Sorting as _DataclassSorting
 from . import Statement as Statement
 
@@ -47,6 +49,22 @@ class PydanticSorting(
 ): ...
 
 Sorting = PydanticSorting
+
+class PydanticParamsMeta(ParamsMeta):
+    @property
+    def Schema(cls) -> type[BaseModel]: ...
+    @property
+    def Model(cls) -> type[BaseModel]: ...
+    @property
+    def Pydantic(cls) -> type[BaseModel]: ...
+
+class PydanticParams(
+    _DataclassParams[_ModelT],
+    Generic[_ModelT],
+    metaclass=PydanticParamsMeta,
+): ...
+
+Params = PydanticParams
 
 def options(
     *,

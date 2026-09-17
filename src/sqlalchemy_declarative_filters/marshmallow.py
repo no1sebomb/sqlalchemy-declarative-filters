@@ -24,19 +24,25 @@ from ._decorators import deprecated, descending, options, skip_null
 from ._joins import Statement
 from ._meta import Filters as _Filters
 from ._meta import FiltersMeta, ModelT
-from ._sorting import OrderStyle, SortingMeta
+from ._params import Params as _Params
+from ._params import ParamsMeta
+from ._sorting import PRIMARY_KEY, OrderStyle, SortingMeta
 from ._sorting import Sorting as _Sorting
 
 # Fail here, with an installation hint, rather than at first schema access.
 get_backend("marshmallow")
 
 __all__ = (
+    "PRIMARY_KEY",
     "Filters",
     "MarshmallowFilters",
     "MarshmallowFiltersMeta",
+    "MarshmallowParams",
+    "MarshmallowParamsMeta",
     "MarshmallowSorting",
     "MarshmallowSortingMeta",
     "OrderStyle",
+    "Params",
     "Sorting",
     "Statement",
     "deprecated",
@@ -72,3 +78,17 @@ class MarshmallowSorting(_Sorting[ModelT], Generic[ModelT], metaclass=Marshmallo
 
 #: The name to inherit from; ``MarshmallowSorting`` is the unambiguous alias.
 Sorting = MarshmallowSorting
+
+
+class MarshmallowParamsMeta(ParamsMeta):
+    """Metaclass of :class:`MarshmallowParams`; narrows the schema types for checkers."""
+
+
+class MarshmallowParams(_Params[ModelT], Generic[ModelT], metaclass=MarshmallowParamsMeta):
+    """Base class for combined params whose ``Schema`` is a :class:`marshmallow.Schema`."""
+
+    __backend__ = "marshmallow"
+
+
+#: The name to inherit from; ``MarshmallowParams`` is the unambiguous alias.
+Params = MarshmallowParams

@@ -143,6 +143,9 @@ class Filters(Statement, Generic[_ModelT], metaclass=FiltersMeta):
 
 DataclassFilters = Filters
 
+#: The default ``__tiebreaker__`` of a sorting class: its model's primary key.
+PRIMARY_KEY: Any
+
 class OrderStyle(str, Enum):
     """How the caller spells the direction of a sort."""
 
@@ -213,6 +216,54 @@ class Sorting(Statement, Generic[_ModelT], metaclass=SortingMeta):
         """``apply(select(model), values)``, for a plain select of the model."""
 
 DataclassSorting = Sorting
+
+class ParamsMeta(type):
+    #: The combined schema of every part, in whichever backend ``__backend__`` names.
+    @property
+    def Schema(cls) -> type[Any]: ...
+    #: Alias of :attr:`Schema`.
+    @property
+    def Model(cls) -> type[Any]: ...
+    @property
+    def Dataclass(cls) -> type[Any]: ...
+    @property
+    def Pydantic(cls) -> type[Any]: ...
+    @property
+    def Marshmallow(cls) -> type[Any]: ...
+    #: The filters and sorting classes combined, by attribute name.
+    @property
+    def __parts__(cls) -> dict[str, FiltersMeta | SortingMeta]: ...
+    #: What the class lists: its type parameter, or its own ``__model__``.
+    @property
+    def __model__(cls) -> Any: ...
+    def build_schema(cls, backend: str | None = ...) -> type[Any]: ...
+
+class Params(Generic[_ModelT], metaclass=ParamsMeta):
+    #: Which backend ``Schema`` uses; set by the base class you inherit from.
+    __backend__: str
+    #: Overrides the generated schema's class name.
+    __schema_name__: str
+    #: What the class lists, when the type parameter is not how you want to say it.
+    __model__: ClassVar[Any]
+
+    # Really a method of the metaclass; declared here so that the class's own type
+    # parameter is in scope, which is what makes the statement checkable against it.
+    @classmethod
+    def apply(
+        cls,
+        statement: Select[tuple[_ModelT]],
+        values: Mapping[str, Any] | Any | None = ...,
+    ) -> Select[tuple[_ModelT]]:
+        """Every filters part, then the sorting part, applied to ``statement``."""
+
+    @classmethod
+    def statement(
+        cls,
+        values: Mapping[str, Any] | Any | None = ...,
+    ) -> Select[tuple[_ModelT]]:
+        """``apply(select(model), values)``, for a plain select of the model."""
+
+DataclassParams = Params
 
 def options(
     *,

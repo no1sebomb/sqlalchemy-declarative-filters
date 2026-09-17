@@ -339,8 +339,22 @@ def _active(
 
 
 def to_mapping(cls: type, values: Any) -> Mapping[str, Any]:
-    """Normalize whatever ``apply`` was handed into a plain mapping."""
+    """Normalize whatever ``apply`` was handed into a plain mapping.
 
+    An instance of a schema a ``Params`` class built carries every part's fields; a part
+    handed one reads only its own.
+    """
+
+    data = _as_mapping(cls, values)
+    params = getattr(type(values), "__filters_params__", None)
+
+    if params is None or params is cls:
+        return data
+
+    return params._values_for(cls, data)  # type: ignore[no-any-return]
+
+
+def _as_mapping(cls: type, values: Any) -> Mapping[str, Any]:
     if values is None:
         return {}
 

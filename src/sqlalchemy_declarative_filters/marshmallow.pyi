@@ -6,9 +6,11 @@ from typing import Any, Generic, overload
 from marshmallow import Schema as _MarshmallowSchema
 from typing_extensions import TypeVar
 
+from . import PRIMARY_KEY as PRIMARY_KEY
 from . import Filters as _DataclassFilters
-from . import FiltersMeta, SortingMeta
+from . import FiltersMeta, ParamsMeta, SortingMeta
 from . import OrderStyle as OrderStyle
+from . import Params as _DataclassParams
 from . import Sorting as _DataclassSorting
 from . import Statement as Statement
 
@@ -47,6 +49,22 @@ class MarshmallowSorting(
 ): ...
 
 Sorting = MarshmallowSorting
+
+class MarshmallowParamsMeta(ParamsMeta):
+    @property
+    def Schema(cls) -> type[_MarshmallowSchema]: ...
+    @property
+    def Model(cls) -> type[_MarshmallowSchema]: ...
+    @property
+    def Marshmallow(cls) -> type[_MarshmallowSchema]: ...
+
+class MarshmallowParams(
+    _DataclassParams[_ModelT],
+    Generic[_ModelT],
+    metaclass=MarshmallowParamsMeta,
+): ...
+
+Params = MarshmallowParams
 
 def options(
     *,

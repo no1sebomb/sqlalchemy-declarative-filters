@@ -11,8 +11,10 @@ from sqlalchemy import select
 from sqlalchemy_declarative_filters.marshmallow import (
     Filters,
     MarshmallowFilters,
+    MarshmallowParams,
     MarshmallowSorting,
     OrderStyle,
+    Params,
     Sorting,
     deprecated,
     descending,
@@ -311,3 +313,27 @@ def test_a_desc_flag_is_loaded_from_the_query_string():
     assert sql(Flagged.apply(select(Book), values)).endswith(
         "ORDER BY book.title DESC, book.id DESC"
     )
+
+
+# --- params ------------------------------------------------------------------------------
+
+
+class BookParams(Params[Book]):
+    """Parameters for listing the book catalogue."""
+
+    filters = BookFilters
+    sorting = BookSorting
+
+
+def test_params_is_the_marshmallow_base():
+    assert Params is MarshmallowParams
+    assert issubclass(BookParams.Schema, Schema)
+
+
+def test_apply_splits_the_loaded_dict_between_the_parts():
+    values = BookParams.Schema().load({"q": "tomb", "sort": "newest", "order": "asc"})
+
+    compiled = sql(BookParams.apply(select(Book), values))
+
+    assert "lower(book.title) LIKE lower" in compiled
+    assert compiled.endswith("ORDER BY book.released_on, book.id")

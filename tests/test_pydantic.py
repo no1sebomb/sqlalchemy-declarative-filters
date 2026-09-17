@@ -10,7 +10,9 @@ from sqlalchemy import select
 from sqlalchemy_declarative_filters.pydantic import (
     Filters,
     OrderStyle,
+    Params,
     PydanticFilters,
+    PydanticParams,
     PydanticSorting,
     Sorting,
     deprecated,
@@ -321,3 +323,48 @@ def test_a_prefix_sort_field_offers_both_directions():
     assert list(properties) == ["sort"]
     assert properties["sort"]["enum"] == ["title", "-title", "newest", "-newest"]
     assert properties["sort"]["default"] == "-newest"
+
+
+# --- params ------------------------------------------------------------------------------
+
+
+class BookParams(Params[Book]):
+    """Parameters for listing the book catalogue."""
+
+    filters = BookFilters
+    sorting = BookSorting
+
+
+def test_params_is_the_pydantic_base():
+    assert Params is PydanticParams
+    assert issubclass(BookParams.Schema, BaseModel)
+
+
+def test_the_params_json_schema_documents_every_field():
+    schema = BookParams.Schema.model_json_schema()
+    properties = schema["properties"]
+
+    assert schema["description"] == "Parameters for listing the book catalogue."
+    assert list(properties)[-2:] == ["sort_by", "asc"]
+    assert properties["title"]["description"] == "Books whose title contains this."
+    assert properties["title"]["examples"] == ["tomb"]
+    assert properties["sort_by"]["enum"] == ["title", "newest"]
+
+
+def test_the_params_model_validates_and_coerces_every_part():
+    values = BookParams.Schema(title="tomb", availability="null", sort_by="newest", asc="0")
+
+    assert values.availability is None
+    assert values.asc is False
+
+    with pytest.raises(ValidationError, match="title"):
+        BookParams.Schema(title="ab")
+
+
+def test_apply_takes_the_params_model_and_so_does_each_part():
+    values = BookParams.Schema(title="tomb", sort_by="newest", asc="0")
+
+    assert sql(BookParams.apply(select(Book), values)).endswith(
+        "ORDER BY book.released_on DESC, book.id DESC"
+    )
+    assert "ORDER BY" not in sql(BookFilters.apply(select(Book), values))

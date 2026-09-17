@@ -23,17 +23,21 @@ from ._exceptions import (
 )
 from ._joins import Statement
 from ._meta import Filters, FiltersMeta
-from ._sorting import OrderStyle, Sorting, SortingMeta
+from ._params import Params, ParamsMeta
+from ._sorting import PRIMARY_KEY, OrderStyle, Sorting, SortingMeta
 
 __version__ = "0.2.0"
 
 #: Explicit alias, for when more than one backend's base is in the same module.
 DataclassFilters = Filters
 DataclassSorting = Sorting
+DataclassParams = Params
 
 __all__ = (
+    "PRIMARY_KEY",
     "BackendNotAvailableError",
     "DataclassFilters",
+    "DataclassParams",
     "DataclassSorting",
     "FilterConditionError",
     "FilterDeclarationError",
@@ -43,6 +47,8 @@ __all__ = (
     "InvalidOrderError",
     "JoinConflictWarning",
     "OrderStyle",
+    "Params",
+    "ParamsMeta",
     "RedundantSkipNullWarning",
     "Sorting",
     "SortingMeta",

@@ -283,7 +283,7 @@ def test_null_strings_coerce_through_from_mapping():
 
 
 def test_from_mapping_rejects_unknown_names():
-    with pytest.raises(TypeError, match="no filter"):
+    with pytest.raises(TypeError, match=r"BookFiltersSchema has no field\(s\) named isbn"):
         BookFilters.Schema.from_mapping({"isbn": "978-0"})
 
 

@@ -8,7 +8,7 @@ holds it to exactly that.
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from sqlalchemy_declarative_filters import Filters, OrderStyle, Sorting, Statement
+from sqlalchemy_declarative_filters import Filters, OrderStyle, Params, Sorting, Statement
 
 
 class Base(DeclarativeBase):
@@ -114,3 +114,15 @@ class PrefixSorting(BookSorting):
 # The style is an OrderStyle, so a misspelling cannot get past the checker.
 class StringlySorting(BookSorting):
     __order_style__ = "prefix"  # type-error
+
+
+class BookParams(Params[Book]):
+    """Filters and sorting behind one schema."""
+
+    filters = BookFilters
+    sorting = BookSorting
+
+
+params_statement: sa.Select[tuple[Book]] = BookParams.statement(values)
+params_applied: sa.Select[tuple[Book]] = BookParams.apply(sa.select(Book), values)
+BookParams.apply(other_statement, values)  # type-error

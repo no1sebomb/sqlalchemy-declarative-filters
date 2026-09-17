@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import exists, func, select
 
 from sqlalchemy_declarative_filters import (
+    PRIMARY_KEY,
     FilterDeclarationError,
     Filters,
     InvalidOrderError,
@@ -273,6 +274,17 @@ def test_the_tiebreaker_is_configurable():
         "author.name, book.released_on DESC, book.title, book.id"
     )
     assert order_by(NoTiebreaker.statement({"sort": "title"})) == "book.title"
+
+
+def test_a_subclass_can_ask_for_the_default_tiebreaker_back():
+    class NoTiebreaker(BookSorting):
+        __tiebreaker__ = None
+
+    class Restored(NoTiebreaker):
+        __tiebreaker__ = PRIMARY_KEY
+
+    assert repr(PRIMARY_KEY) == "PRIMARY_KEY"
+    assert order_by(Restored.statement({"sort": "title"})) == "book.title, book.id"
 
 
 def test_there_is_no_tiebreaker_without_a_model():

@@ -315,6 +315,31 @@ async def get_books(
 The generated model carries the descriptions and constraints, so the OpenAPI document
 documents itself.
 
+A list endpoint usually filters **and** sorts, and FastAPI reads only one model from the
+query string per endpoint -- a second `Query()` model makes every request fail with a
+422. Combine the two with [`Params`](#one-schema-for-filters-and-sorting):
+
+```python
+from catalogue.filters import BookFilters, BookParams  # .pydantic Filters and Params
+
+
+@router.get("/books")
+async def get_books(
+    params: Annotated[BookParams.Schema, Query()],
+    db_session: AsyncSession = Depends(get_session),
+):
+    total = select(func.count()).select_from(BookFilters.statement(params).subquery())
+    return {
+        "total": await db_session.scalar(total),
+        "items": (await db_session.scalars(BookParams.statement(params))).all(),
+    }
+```
+
+Every filter and the sort field arrive as flat, documented query parameters:
+`?title=tomb&genres=poetry&genres=history&sort=-title`. Taking each model through
+`Depends()` instead also works, but FastAPI then drops the field descriptions and
+deprecation flags from the OpenAPI document.
+
 > Do not reach for `model_dump(exclude_unset=True)` on the way in. FastAPI leaves an
 > unprovided query parameter unset, so a filter declaring `availability: Availability =
 > Availability.IN_PRINT` would be dropped before it was ever applied -- the default
@@ -536,10 +561,58 @@ sort already ordered by it.
 ```python
 __tiebreaker__ = (Book.title, Book.id)  # your own keys
 __tiebreaker__ = None  # none at all
+__tiebreaker__ = PRIMARY_KEY  # the default, back again in a subclass
 ```
 
 The primary key needs the model, from `Sorting[Book]` or `__model__`; without one
 there is no default tiebreaker.
+
+## One schema for filters and sorting
+
+A `Params` class names the filters and sorting classes an endpoint uses, and renders all
+of their fields as one schema:
+
+```python
+from sqlalchemy_declarative_filters.pydantic import Params
+
+
+class BookParams(Params[Book]):
+    """Parameters for listing the book catalogue."""
+
+    filters = BookFilters
+    sorting = BookSorting
+```
+
+```python
+BookParams.Schema  # title, genres, ..., sort -- in declaration order, with this docstring
+BookParams.apply(statement, values)  # the filters, then the sorting
+BookParams.statement(values)  # the same, onto select(Book)
+```
+
+Every public attribute is a part: any number of `Filters` classes and at most one
+`Sorting` class. Each part is handed only its own fields, so its defaults hold exactly as
+they do when it is applied alone, and a subclass can add parts or replace one with a
+subclass of it.
+
+A part applied on its own to an instance of the combined schema reads only its own
+fields from it. That is what a count query needs -- filtered, not sorted:
+
+```python
+values = BookParams.Schema(title="tomb", sort="-title")
+
+BookFilters.statement(values)  # WHERE ..., no ORDER BY
+BookSorting.statement(values)  # ORDER BY ..., no WHERE
+```
+
+A plain mapping is still checked strictly: `BookFilters.apply(stmt, {"sort": "-title"})`
+raises `UnknownFilterError`. So on the Marshmallow backend, whose `load()` returns a
+dict, go through `BookParams.apply`, which knows which keys belong to which part.
+
+Declaring a `Params` class fails with `FilterDeclarationError` when two parts read a
+field of the same name -- a filter called `sort`, say; rename it, or the sorting class's
+`__sort_field__` -- when there is more than one sorting part, or when a part is over
+another model than the `Params` class. The `Params` class's own backend renders every
+field, so import it from the same namespace as its parts.
 
 ## Reference
 
@@ -559,6 +632,11 @@ BookSorting.Schema  # ... and the same set for a sorting class
 BookSorting.apply(statement, values=None)  # values: a mapping, a schema instance, or None
 BookSorting.statement(values=None)  # select(model), sorted
 BookSorting.__sorts__  # the collected SortSpec objects
+
+BookParams.Schema  # ... and for a params class, every part's fields in one schema
+BookParams.apply(statement, values=None)  # every filters part, then the sorting part
+BookParams.statement(values=None)  # select(model), filtered and sorted
+BookParams.__parts__  # the combined classes, by attribute name
 ```
 
 Class attributes you can set on a filters class:

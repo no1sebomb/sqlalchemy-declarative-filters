@@ -70,7 +70,11 @@ _NULLS = (operators.nulls_first_op, operators.nulls_last_op)
 
 
 class _PrimaryKey:
-    """The default ``__tiebreaker__``: the model's primary key, when the model is known."""
+    """The default ``__tiebreaker__``: the model's primary key, when the model is known.
+
+    Exported as ``PRIMARY_KEY``, so that a subclass of a class that set its own
+    tiebreaker -- or ``None`` -- can ask for the default back.
+    """
 
     def __repr__(self) -> str:
         return "PRIMARY_KEY"

@@ -18,17 +18,23 @@ from ._decorators import deprecated, descending, options, skip_null
 from ._joins import Statement
 from ._meta import Filters as _Filters
 from ._meta import FiltersMeta, ModelT
-from ._sorting import OrderStyle, SortingMeta
+from ._params import Params as _Params
+from ._params import ParamsMeta
+from ._sorting import PRIMARY_KEY, OrderStyle, SortingMeta
 from ._sorting import Sorting as _Sorting
 
 # Fail here, with an installation hint, rather than at first schema access.
 get_backend("pydantic")
 
 __all__ = (
+    "PRIMARY_KEY",
     "Filters",
     "OrderStyle",
+    "Params",
     "PydanticFilters",
     "PydanticFiltersMeta",
+    "PydanticParams",
+    "PydanticParamsMeta",
     "PydanticSorting",
     "PydanticSortingMeta",
     "Sorting",
@@ -66,3 +72,17 @@ class PydanticSorting(_Sorting[ModelT], Generic[ModelT], metaclass=PydanticSorti
 
 #: The name to inherit from; ``PydanticSorting`` is the unambiguous alias.
 Sorting = PydanticSorting
+
+
+class PydanticParamsMeta(ParamsMeta):
+    """Metaclass of :class:`PydanticParams`; narrows the schema types for checkers."""
+
+
+class PydanticParams(_Params[ModelT], Generic[ModelT], metaclass=PydanticParamsMeta):
+    """Base class for combined params whose ``Schema`` is a :class:`pydantic.BaseModel`."""
+
+    __backend__ = "pydantic"
+
+
+#: The name to inherit from; ``PydanticParams`` is the unambiguous alias.
+Params = PydanticParams

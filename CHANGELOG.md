@@ -21,8 +21,13 @@ All notable changes to this project are documented here. The format follows
   `__default_sort__` applies when the caller picks nothing.
 - A sort is followed by the statement's existing ordering and then by `__tiebreaker__`,
   the model's primary key by default, so that paginated results never repeat or skip
-  rows.
+  rows. `PRIMARY_KEY` names that default, for a subclass to ask for it back.
 - `UnknownSortError` and `InvalidOrderError`.
+- `Params` renders any number of `Filters` classes and one `Sorting` class as a single
+  schema, which is what FastAPI needs: it reads one model per endpoint from the query
+  string. `BookParams.apply` and `.statement` run the filters and then the sorting, and
+  each part applied alone to an instance of the combined schema reads only its own
+  fields, so a count query can reuse it.
 
 ### Changed
 

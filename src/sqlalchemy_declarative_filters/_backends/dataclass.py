@@ -76,7 +76,7 @@ def _from_mapping(cls: type[Any], data: Mapping[str, Any]) -> Any:
 
     if unknown:
         names = ", ".join(sorted(unknown))
-        raise TypeError(f"{cls.__name__} has no filter(s) named {names}.")
+        raise TypeError(f"{cls.__name__} has no field(s) named {names}.")
 
     return cls(
         **{
